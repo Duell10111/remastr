@@ -108,3 +108,11 @@ def test_vspipe_frame_range_and_args(settings):
     assert "deint=bff" in cmd and "mode=cugan" in cmd and "outw=1920" in cmd
     assert cmd[cmd.index("-s") + 1] == "100" and cmd[cmd.index("-e") + 1] == "199"
     assert cmd[-2].endswith("remastr.vpy") and cmd[-1] == "-"
+
+
+def test_onnx_padding_and_precision_args(settings):
+    plan = make_plan(info(640, 360, 16 / 9), "none", 1080)
+    hat = build_vspipe_cmd(settings, Path("in.mp4"), plan, get_preset("real_hat"), Path("c.lwi"))
+    general = build_vspipe_cmd(settings, Path("in.mp4"), plan, get_preset("realesr_general"), Path("c.lwi"))
+    assert "multiple=16" in hat and "fp16=0" in hat and "streams=1" in hat
+    assert "multiple=1" in general and "fp16=1" in general and "streams=2" in general

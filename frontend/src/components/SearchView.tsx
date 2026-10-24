@@ -101,7 +101,7 @@ export function SearchView({ presets, onOpen, onQueued }: Props) {
       )}
 
       {selected.size > 0 && (
-        <BatchPanel presets={presets} ratingKeys={[...selected]} onQueued={onQueued} />
+        <BatchPanel presets={presets.filter((p) => !p.preview_only)} ratingKeys={[...selected]} onQueued={onQueued} />
       )}
     </section>
   )

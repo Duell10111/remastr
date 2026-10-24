@@ -82,7 +82,27 @@ preset fails without them.
    stop and investigate instead of continuing. Result: `realesr-general-x4v3.onnx`,
    `realesr-general-x4v3-dn50.onnx`, `RealESRGAN_x4plus.onnx` in `<vs-mlrt>\models\remastr\`.
 
-Own ONNX models (e.g. from OpenModelDB) go via `<work_dir>\presets.json`, see README "Eigene Modelle".
+### 5b. Real-HAT GAN (optional, preview-only presets `real_hat`, `real_hat_sharper`)
+
+The weights are only on the official HAT Google Drive folder (`1HpmReFfoUqUbnAOQ7rvOeNU3uf_m69w0`, linked from
+https://github.com/XPixelGroup/HAT). Download the two files with gdown (~170 MB each):
+
+```powershell
+uv run --no-project --with gdown gdown 1Ma12vCWT27P9M99-s2RXnynKN-OQsBrv -O F:\Tools\_downloads\hat\Real_HAT_GAN_SRx4.pth
+uv run --no-project --with gdown gdown 1EioFq5-mKmv1uqta_Byd9cgXp9SU3zjj -O F:\Tools\_downloads\hat\Real_HAT_GAN_sharper.pth
+```
+
+SHA-256 of `Real_HAT_GAN_SRx4.pth`: `F5B1E3BBBB05147CA2BEEFCC715279CB647D7976CBDA67D62EA7E6E20D5FFCC7`, of
+`Real_HAT_GAN_sharper.pth`: `5800B67136006EB8CAB3B4ED7C8D73B6A195BB18E6CC709B674F9AA069C00271`. Then, from
+`backend/`, for each file:
+
+```powershell
+uv run --no-project --with spandrel --with torch --with onnx --with onnxruntime --with numpy `
+    python tools/convert_model.py F:\Tools\_downloads\hat\<name>.pth <vs-mlrt>\models\remastr\<name>.onnx
+```
+
+Own models (e.g. from OpenModelDB) are converted the same way and added via `<work_dir>\presets.json`, see README
+"Eigene Modelle". Window-attention models (HAT, SwinIR, DAT) need `"onnx_multiple"` = their window size there.
 
 ## 6. ffmpeg, uv, Node.js
 

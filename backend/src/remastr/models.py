@@ -50,6 +50,15 @@ class Preset(BaseModel):
     """VapourSynth stage (see remastr.vpy). Upscaling modes scale there; the others leave scaling to NVEncC."""
     onnx_model: str | None = None
     """vpy_mode "onnx": upscaling model (NCHW RGB, input named "input"), relative to <vs-mlrt>/models or absolute."""
+    onnx_multiple: int = 1
+    """vpy_mode "onnx": the model needs width/height to be a multiple of this (e.g. 16 for HAT); the frame is
+    mirror-padded before and cropped after inference."""
+    fp16: bool = True
+    """TensorRT in half precision. Some transformer models overflow in fp16 (black/green output)."""
+    num_streams: int = 2
+    """Parallel TensorRT streams. Large models need 1: two contexts overflow 12 GB VRAM and get ~15x slower."""
+    preview_only: bool = False
+    """Too slow for whole files; only offered for preview clips."""
     nvenc_filters: list[str] = []
     """Extra NVEncC filter arguments (before scaling)."""
     nvenc_resize: str | None = None

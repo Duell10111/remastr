@@ -1,7 +1,8 @@
 # VapourSynth pipeline used by remastr.pipeline (run through vspipe).
 # Args (vspipe -a): src, cache, plugins (StaxRip Apps/Plugins), mlrt (vs-mlrt dir),
 #                   deint (none|tff|bff), mode (esrgan|cugan|swinir|waifu2x|onnx|dpir|scunet|passthrough),
-#                   outw, outh, matrix_in, onnx (model path, mode "onnx" only)
+#                   outw, outh, matrix_in, fp16 (1|0), streams (TensorRT streams),
+#                   onnx, multiple (model path and required size multiple, mode "onnx" only)
 import sys
 
 import vapoursynth as vs
@@ -49,8 +50,10 @@ if mode != "passthrough":
     sys.path.insert(0, MLRT)
     import vsmlrt
 
-    # SwinIR overflows in fp16 (all-zero output), so it runs in fp32
-    backend = vsmlrt.Backend.TRT(fp16=(mode != "swinir"), num_streams=2)
+    # Presets switch fp16 off for models that overflow in half precision (e.g. SwinIR: all-zero output)
+    backend = vsmlrt.Backend.TRT(
+        fp16=globals().get("fp16", "1") == "1", num_streams=int(globals().get("streams", "2"))
+    )
     rgb = core.resize.Bicubic(clip, format=vs.RGBH, matrix_in_s=matrix_in)
 
 if mode == "esrgan":
@@ -69,8 +72,18 @@ elif mode == "waifu2x":
     rgb = vsmlrt.Waifu2x(rgb, noise=1, scale=4, model=vsmlrt.Waifu2xModel.swin_unet_photo_v2, backend=backend)
     out = core.resize.Spline36(rgb, outw, outh, format=vs.YUV420P10, matrix_s="709")
 elif mode == "onnx":
-    # Any upscaling ONNX model (e.g. converted Real-ESRGAN); output is resized to the target
+    # Any upscaling ONNX model (e.g. converted Real-ESRGAN); output is resized to the target.
+    # Models with a size multiple (window attention, e.g. HAT) get mirror padding, cropped again afterwards.
+    m = int(globals().get("multiple", "1"))
+    w, h = rgb.width, rgb.height
+    pad_w, pad_h = -w % m, -h % m
+    if pad_w:
+        rgb = core.std.StackHorizontal([rgb, core.std.FlipHorizontal(rgb.std.Crop(left=w - pad_w))])
+    if pad_h:
+        rgb = core.std.StackVertical([rgb, core.std.FlipVertical(rgb.std.Crop(top=h - pad_h))])
     rgb = vsmlrt.inference(rgb, network_path=globals()["onnx"], backend=backend)
+    scale = rgb.width // (w + pad_w)
+    rgb = rgb.std.Crop(right=pad_w * scale, bottom=pad_h * scale)
     out = core.resize.Spline36(rgb, outw, outh, format=vs.YUV420P10, matrix_s="709")
 elif mode == "dpir":
     # Deblocking only; NVEncC scales afterwards. Keep the source matrix.

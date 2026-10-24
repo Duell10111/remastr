@@ -144,3 +144,10 @@ def test_workspace_resolve_blocks_traversal(svc):
     make_output(svc)
     with pytest.raises(FileNotFoundError):
         svc.media_file(ITEM.rating_key, "../../remastr.db")
+
+
+def test_preview_only_presets_are_refused_for_whole_files(svc):
+    from remastr.models import ProcessRequest
+
+    with pytest.raises(ValueError, match="previews only"):
+        svc.process(ITEM.rating_key, ProcessRequest(preset="real_hat"))

@@ -52,6 +52,32 @@ PRESETS: list[Preset] = [
         description="Live action: super-resolution trained on realistic degradations, can invent detail. "
         "Very slow (~1.5 fps on an RTX 5070, runs in fp32): previews and short clips only.",
         vpy_mode="swinir",
+        fp16=False,
+        preview_only=True,
+    ),
+    # Hybrid Attention Transformer (XPixelGroup/HAT), converted with tools/convert_model.py
+    Preset(
+        id="real_hat",
+        name="Real-HAT GAN",
+        description="Live action, transformer GAN (successor of SwinIR): most faithful fine detail. "
+        "Very slow (~0.7 fps on an RTX 5070, fp32; fp16 gives green output), previews only.",
+        vpy_mode="onnx",
+        onnx_model="remastr/Real_HAT_GAN_SRx4.onnx",
+        onnx_multiple=16,
+        fp16=False,
+        num_streams=1,
+        preview_only=True,
+    ),
+    Preset(
+        id="real_hat_sharper",
+        name="Real-HAT GAN sharper",
+        description="Like Real-HAT GAN, trained for crisper output. Very slow, previews only.",
+        vpy_mode="onnx",
+        onnx_model="remastr/Real_HAT_GAN_sharper.onnx",
+        onnx_multiple=16,
+        fp16=False,
+        num_streams=1,
+        preview_only=True,
     ),
     Preset(
         id="realesr_general_dn",

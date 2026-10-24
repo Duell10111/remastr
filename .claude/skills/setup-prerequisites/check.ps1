@@ -61,6 +61,12 @@ foreach ($f in 'realesr-general-x4v3.onnx', 'realesr-general-x4v3-dn50.onnx', 'R
     Check 5 "Real-ESRGAN $f" (Test-Path "$vsmlrt\models\remastr\$f") 'tools/convert_realesrgan.py'
 }
 
+foreach ($f in 'Real_HAT_GAN_SRx4.onnx', 'Real_HAT_GAN_sharper.onnx') {
+    $p = "$vsmlrt\models\remastr\$f"
+    if (Test-Path $p) { Write-Host "OK     [5b] Real-HAT $f (optional)" -ForegroundColor Green }
+    else { Write-Host "  --   [5b] Real-HAT $f (optional, nur Vorschau-Presets)" -ForegroundColor DarkGray }
+}
+
 Check 6 "ffprobe ($ffprobe)" ((Has-Command $ffprobe) -or (Test-Path $ffprobe))
 Check 6 'uv' (Has-Command 'uv') 'PATH neu laden oder winget install astral-sh.uv'
 Check 6 'Node.js' (Has-Command 'node') 'fnm use lts-latest'

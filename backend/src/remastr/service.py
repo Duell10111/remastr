@@ -110,7 +110,8 @@ class Remastr:
         return self.runner.submit(JobType.preview, rating_key, item.display_title, req.model_dump(), dep)
 
     def process(self, rating_key: str, req: ProcessRequest, depends_on: int | None = None) -> Job:
-        get_preset(req.preset)
+        if get_preset(req.preset).preview_only:
+            raise ValueError(f"Preset '{req.preset}' is too slow for whole files; use it for previews only")
         item = self._fetch(rating_key)
         dep = depends_on or self._source_dependency(item)
         return self.runner.submit(JobType.process, rating_key, item.display_title, req.model_dump(), dep)

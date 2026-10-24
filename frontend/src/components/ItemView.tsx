@@ -45,7 +45,7 @@ export function ItemView({ ratingKey, presets, onBack }: Props) {
           <Header detail={detail.data} />
           <SourcePanel detail={detail.data} jobs={jobs.data ?? []} onQueued={queued} />
           <PreviewPanel detail={detail.data} presets={presets} onQueued={queued} />
-          <ProcessPanel detail={detail.data} presets={presets} onQueued={queued} />
+          <ProcessPanel detail={detail.data} presets={presets.filter((p) => !p.preview_only)} onQueued={queued} />
           <OutputPanel detail={detail.data} onQueued={queued} />
         </>
       )}
@@ -131,7 +131,10 @@ function PreviewPanel({ detail, presets, onQueued }: { detail: ItemDetail; prese
           <label key={p.id} className="preset" title={p.description}>
             <input type="checkbox" checked={chosen.has(p.id)} onChange={() => toggle(p.id)} />
             <span>
-              <strong>{p.name}</strong>
+              <strong>
+                {p.name}
+                {p.preview_only && <span className="muted small-text"> · nur Vorschau</span>}
+              </strong>
               <span className="muted small-text">{p.description}</span>
             </span>
           </label>

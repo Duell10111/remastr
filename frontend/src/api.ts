@@ -20,7 +20,7 @@ export type PlexItem = {
   video_codec: string | null
 }
 
-export type Preset = { id: string; name: string; description: string }
+export type Preset = { id: string; name: string; description: string; preview_only: boolean }
 
 export type PreviewClip = { preset: string; file: string }
 export type PreviewRun = { id: string; start_s: number; duration_s: number; created_at: string; clips: PreviewClip[] }

@@ -25,12 +25,14 @@ Untertitel aus dem Original, A/V-Versatz ausgeglichen). SD wird auf 1080p hochsk
 | `mild_vsr` | Realfilm, schnell | Deblock/Deband + RTX VSR |
 | `realesr_general_dn` | Realfilm, GAN, schnell | general x4v3 mit 50 % Entrauschung, für verrauschte/blockige Quellen |
 | `realesrgan_x4plus` | Realfilm, GAN, langsam | Real-ESRGAN x4plus: stärkste Schärfung, Haut wirkt teils gemalt (~4–5 fps) |
-| `swinir_real` | Realfilm, nur kurze Clips | SwinIR real-world (GAN): knackigste Kanten, aber ca. 1,5 fps |
+| `real_hat`, `real_hat_sharper` | Realfilm, GAN, nur Vorschau | Real-HAT GAN (Nachfolger von SwinIR): feinste Details, aber sehr langsam |
+| `swinir_real` | Realfilm, nur Vorschau | SwinIR real-world (GAN): knackigste Kanten, aber ca. 1,5 fps |
 | `waifu2x_photo` | Realfilm/Fotos | waifu2x swin_unet photo: leichtes Entrauschen + 4x |
 | `esrgan` | Zeichentrick/Anime | Real-ESRGAN animevideov3: saubere Linien, nah am Original |
 | `cugan` | Zeichentrick/Anime | Real-CUGAN pro: am schärfsten, kräftige Konturen |
 | `lanczos` | – | ohne KI, Referenz zum Vergleichen |
 
+Presets mit „nur Vorschau“ sind für ganze Dateien zu langsam und lassen sich nur für Testabschnitte wählen.
 Die Anime-Modelle lassen Realfilm „gemalt“ wirken (wachsige Haut, Lichthöfe an Kanten). Standard-Qualität ist
 QVBR 26: bei hochskaliertem SD optisch gleich wie 20, aber rund 40 % der Dateigröße.
 
@@ -47,10 +49,13 @@ installiert StaxRip, vs-mlrt und alle Modelle Schritt für Schritt. Nur prüfen:
   nach `<vs-mlrt>/models/` entpacken
 - Real-ESRGAN-Presets: die offiziellen `.pth`-Gewichte mit `backend/tools/convert_realesrgan.py` nach
   `<vs-mlrt>/models/remastr/` konvertieren (Anleitung im Skript)
+- Real-HAT-Presets (optional): `Real_HAT_GAN_SRx4.pth` und `Real_HAT_GAN_sharper.pth` aus dem
+  [HAT-Google-Drive](https://github.com/XPixelGroup/HAT#how-to-test) mit `backend/tools/convert_model.py` konvertieren
 
 ### Eigene Modelle
 
-Jedes Upscaling-Modell im ONNX-Format (Eingang `input`, NCHW, RGB 0..1) lässt sich ohne Codeänderung als Preset
+`backend/tools/convert_model.py` wandelt fast jedes Modell von [OpenModelDB](https://openmodeldb.info) (.pth/.safetensors)
+nach ONNX um. Jedes Upscaling-Modell im ONNX-Format (Eingang `input`, NCHW, RGB 0..1) lässt sich ohne Codeänderung als Preset
 einbinden, über `<REMASTR_WORK_DIR>/presets.json`:
 
 ```json

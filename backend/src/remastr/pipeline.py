@@ -197,11 +197,14 @@ def build_vspipe_cmd(
         "outw": str(plan.out_w),
         "outh": str(plan.out_h),
         "matrix_in": plan.matrix_in,
+        "fp16": "1" if preset.fp16 else "0",
+        "streams": str(preset.num_streams),
     }
     if preset.vpy_mode == "onnx":
         if not preset.onnx_model:
             raise PipelineError(f"Preset {preset.id} has no onnx_model")
         args["onnx"] = str(settings.vsmlrt_dir / "models" / preset.onnx_model)  # absolute paths stay absolute
+        args["multiple"] = str(preset.onnx_multiple)
     cmd = [str(settings.vspipe), "-c", "y4m"]
     for k, v in args.items():
         cmd += ["-a", f"{k}={v}"]
