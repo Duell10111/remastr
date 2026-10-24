@@ -1,6 +1,7 @@
 # VapourSynth pipeline used by remastr.pipeline (run through vspipe).
 # Args (vspipe -a): src, cache, plugins (StaxRip Apps/Plugins), mlrt (vs-mlrt dir),
-#                   deint (none|tff|bff), mode (esrgan|cugan|dpir|passthrough), outw, outh, matrix_in
+#                   deint (none|tff|bff), mode (esrgan|cugan|swinir|waifu2x|dpir|scunet|passthrough),
+#                   outw, outh, matrix_in
 import sys
 
 import vapoursynth as vs
@@ -42,13 +43,14 @@ if deint in ("tff", "bff"):
 
     clip = havsfunc.QTGMC(clip, Preset="Slower", TFF=(deint == "tff"), FPSDivisor=1)
 
-if mode in ("esrgan", "cugan", "dpir"):
+if mode != "passthrough":
     load(MLRT + r"\vstrt.dll")
     load(MLRT + r"\akarin\akarin.dll")
     sys.path.insert(0, MLRT)
     import vsmlrt
 
-    backend = vsmlrt.Backend.TRT(fp16=True, num_streams=2)
+    # SwinIR overflows in fp16 (all-zero output), so it runs in fp32
+    backend = vsmlrt.Backend.TRT(fp16=(mode != "swinir"), num_streams=2)
     rgb = core.resize.Bicubic(clip, format=vs.RGBH, matrix_in_s=matrix_in)
 
 if mode == "esrgan":
@@ -58,9 +60,21 @@ elif mode == "cugan":
     scale = 2 if clip.height * 2 >= outh else 3
     rgb = vsmlrt.CUGAN(rgb, noise=-1, scale=scale, version=2, backend=backend)
     out = core.resize.Spline36(rgb, outw, outh, format=vs.YUV420P10, matrix_s="709")
+elif mode == "swinir":
+    # Real-world SR trained on realistic degradations (BSRGAN), GAN variant: most texture, slowest
+    rgb = vsmlrt.SwinIR(rgb, model=vsmlrt.SwinIRModel.realSR_BSRGAN_DFO_s64w8_SwinIR_M_x2_GAN, backend=backend)
+    out = core.resize.Spline36(rgb, outw, outh, format=vs.YUV420P10, matrix_s="709")
+elif mode == "waifu2x":
+    # The photo models are 4x only (vsmlrt would downscale other factors), so resize once to the target below
+    rgb = vsmlrt.Waifu2x(rgb, noise=1, scale=4, model=vsmlrt.Waifu2xModel.swin_unet_photo_v2, backend=backend)
+    out = core.resize.Spline36(rgb, outw, outh, format=vs.YUV420P10, matrix_s="709")
 elif mode == "dpir":
     # Deblocking only; NVEncC scales afterwards. Keep the source matrix.
     rgb = vsmlrt.DPIR(rgb, strength=25, model=vsmlrt.DPIRModel.drunet_deblocking_color, backend=backend)
+    out = core.resize.Bicubic(rgb, format=vs.YUV420P10, matrix_s=matrix_in)
+elif mode == "scunet":
+    # Blind real-world restoration (noise + compression) at source resolution; NVEncC scales afterwards
+    rgb = vsmlrt.SCUNet(rgb, model=vsmlrt.SCUNetModel.scunet_color_real_psnr, backend=backend)
     out = core.resize.Bicubic(rgb, format=vs.YUV420P10, matrix_s=matrix_in)
 elif mode == "passthrough":
     out = core.resize.Bicubic(clip, format=vs.YUV420P10)

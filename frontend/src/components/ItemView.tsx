@@ -97,7 +97,7 @@ function SourcePanel({ detail, jobs, onQueued }: { detail: ItemDetail; jobs: Job
   )
 }
 
-const DEFAULT_PREVIEW = ['lanczos', 'dpir_vsr', 'mild_vsr', 'esrgan']
+const DEFAULT_PREVIEW = ['lanczos', 'scunet_vsr', 'dpir_vsr', 'esrgan']
 
 function PreviewPanel({ detail, presets, onQueued }: { detail: ItemDetail; presets: Preset[]; onQueued: () => void }) {
   const [chosen, setChosen] = useState<Set<string>>(new Set(DEFAULT_PREVIEW.filter((id) => presets.some((p) => p.id === id))))
@@ -237,10 +237,17 @@ function OutputPanel({ detail, onQueued }: { detail: ItemDetail; onQueued: () =>
   return (
     <div className="panel">
       <h3>Ergebnis</h3>
-      <ul className="plain">
+      <ul className="plain outputs">
         {detail.local.outputs.map((o) => (
-          <li key={o}>
-            <a href={fileUrl(rk, o)} target="_blank" rel="noreferrer" className="mono">{o.split('/').pop()}</a>
+          <li key={o.file}>
+            <a href={fileUrl(rk, o.file)} target="_blank" rel="noreferrer" className="mono">{o.file.split('/').pop()}</a>
+            <div className="output-meta">
+              <strong>{o.preset_name ?? 'Preset unbekannt'}</strong>
+              {o.codec && <span>{o.codec.toUpperCase()} · Qualität {o.quality}</span>}
+              <span>{formatBytes(o.size)}</span>
+              {o.created_at && <span>{new Date(o.created_at).toLocaleString()}</span>}
+            </div>
+            {o.description && <div className="muted small-text">{o.description}</div>}
           </li>
         ))}
       </ul>

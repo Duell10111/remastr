@@ -24,7 +24,17 @@ export type Preset = { id: string; name: string; description: string }
 
 export type PreviewClip = { preset: string; file: string }
 export type PreviewRun = { id: string; start_s: number; duration_s: number; created_at: string; clips: PreviewClip[] }
-export type LocalState = { source: string | null; previews: PreviewRun[]; outputs: string[] }
+export type OutputInfo = {
+  file: string
+  size: number
+  preset: string | null
+  preset_name: string | null
+  codec: string | null
+  quality: number | null
+  description: string | null
+  created_at: string | null
+}
+export type LocalState = { source: string | null; previews: PreviewRun[]; outputs: OutputInfo[] }
 export type ItemDetail = { item: PlexItem; local: LocalState }
 
 export type JobType = 'download' | 'preview' | 'process' | 'upload'

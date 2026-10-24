@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-DEFAULT_PRESET = "dpir_vsr"
+DEFAULT_PRESET = "scunet_vsr"
 DEFAULT_QUALITY = 26
 """QVBR 26: visually identical to 20 on upscaled SD at roughly 40% of the size (tested on 640x360 -> 1080p)."""
 
@@ -46,12 +46,16 @@ class Preset(BaseModel):
     id: str
     name: str
     description: str
-    vpy_mode: Literal["esrgan", "cugan", "dpir", "passthrough"]
-    """VapourSynth stage: esrgan/cugan upscale there; dpir/passthrough leave scaling to NVEncC."""
+    vpy_mode: Literal["esrgan", "cugan", "swinir", "waifu2x", "dpir", "scunet", "passthrough"]
+    """VapourSynth stage (see remastr.vpy). Upscaling modes scale there; the others leave scaling to NVEncC."""
     nvenc_filters: list[str] = []
     """Extra NVEncC filter arguments (before scaling)."""
     nvenc_resize: str | None = None
     """NVEncC --vpp-resize value, only used when VapourSynth does not scale."""
+
+    @property
+    def scales_in_vapoursynth(self) -> bool:
+        return self.vpy_mode in ("esrgan", "cugan", "swinir", "waifu2x")
 
 
 class PreviewClip(BaseModel):
@@ -68,12 +72,32 @@ class PreviewRun(BaseModel):
     clips: list[PreviewClip]
 
 
+class OutputInfo(BaseModel):
+    """A processed file plus how it was made (stored next to it as <name>.remastr.json)."""
+
+    file: str
+    """Path relative to the item workspace."""
+    size: int
+    preset: str | None = None
+    preset_name: str | None = None
+    codec: str | None = None
+    quality: int | None = None
+    description: str | None = None
+    created_at: datetime | None = None
+
+    @property
+    def label(self) -> str:
+        if not self.preset_name:
+            return "unknown preset"
+        return f"{self.preset_name}, {(self.codec or '').upper()} q{self.quality}"
+
+
 class LocalState(BaseModel):
     """What exists in the local workspace for an item."""
 
     source: str | None = None
     previews: list[PreviewRun] = []
-    outputs: list[str] = []
+    outputs: list[OutputInfo] = []
 
 
 class ItemDetail(BaseModel):

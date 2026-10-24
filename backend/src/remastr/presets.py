@@ -1,17 +1,26 @@
 """Processing variants, based on comparison tests on an RTX 5070.
 
-Findings: the anime models (esrgan, cugan) look great on cartoons but give live action a painted/waxy look;
-DPIR + RTX VSR stays natural on live action. The default preset comes first (the UI preselects it).
+Findings: the anime models (esrgan, cugan) look great on cartoons but give live action a painted/waxy look.
+On live action, SCUNet + RTX VSR gave the cleanest result, DPIR + VSR a close, slightly more textured second.
+The default preset comes first (the UI preselects it).
 """
 
 from remastr.models import DEFAULT_PRESET, Preset
 
 PRESETS: list[Preset] = [
     Preset(
+        id="scunet_vsr",
+        name="SCUNet + NVIDIA VSR",
+        description="Live action (default): blind real-world restoration (noise, compression) at source "
+        "resolution, then RTX Video Super Resolution. Cleanest result.",
+        vpy_mode="scunet",
+        nvenc_resize="algo=ngx-vsr,vsr-quality=4",
+    ),
+    Preset(
         id="dpir_vsr",
         name="DPIR deblock + NVIDIA VSR",
-        description="Live action (default): AI deblocking at source resolution, then RTX Video Super Resolution. "
-        "Natural look.",
+        description="Live action: AI deblocking at source resolution, then RTX Video Super Resolution. "
+        "Keeps a bit more texture than SCUNet.",
         vpy_mode="dpir",
         nvenc_resize="algo=ngx-vsr,vsr-quality=4",
     ),
@@ -22,6 +31,19 @@ PRESETS: list[Preset] = [
         vpy_mode="passthrough",
         nvenc_filters=["--vpp-smooth", "quality=4,qp=10", "--vpp-deband", "range=15,thre=10,dither=8"],
         nvenc_resize="algo=ngx-vsr,vsr-quality=4",
+    ),
+    Preset(
+        id="swinir_real",
+        name="SwinIR real-world (GAN)",
+        description="Live action: super-resolution trained on realistic degradations, can invent detail. "
+        "Very slow (~1.5 fps on an RTX 5070, runs in fp32): previews and short clips only.",
+        vpy_mode="swinir",
+    ),
+    Preset(
+        id="waifu2x_photo",
+        name="waifu2x swin_unet photo",
+        description="Live action/photos: light denoise plus 4x upscale (scaled to target).",
+        vpy_mode="waifu2x",
     ),
     Preset(
         id="esrgan",

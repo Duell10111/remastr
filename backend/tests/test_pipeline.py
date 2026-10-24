@@ -46,6 +46,14 @@ def test_nvencc_scales_only_for_non_vapoursynth_presets(settings):
     assert vsr.index("--vpp-smooth") < vsr.index("--vpp-resize")
 
 
+def test_scaling_stage_per_preset(settings):
+    plan = make_plan(info(640, 360, 16 / 9), "none", 1080)
+    scunet = build_nvencc_cmd(settings, plan, get_preset("scunet_vsr"), Path("o.mkv"), "hevc", 26)
+    swinir = build_nvencc_cmd(settings, plan, get_preset("swinir_real"), Path("o.mkv"), "hevc", 26)
+    assert scunet[scunet.index("--output-res") + 1] == "1920x1080"
+    assert "--vpp-resize" not in swinir and "bt709" in swinir
+
+
 def test_preview_uses_h264_8bit(settings):
     plan = make_plan(info(720, 576, 4 / 3), "none", 1080)
     cmd = build_nvencc_cmd(settings, plan, get_preset("esrgan"), Path("p.mp4"), "h264", 20)

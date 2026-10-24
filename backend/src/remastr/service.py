@@ -18,6 +18,7 @@ from remastr.models import (
     Job,
     JobType,
     Library,
+    OutputInfo,
     PlexItem,
     Preset,
     PreviewRequest,
@@ -206,19 +207,29 @@ class Remastr:
     def _run_process(self, ctx: JobContext) -> dict[str, Any]:
         req = ProcessRequest.model_validate(ctx.job.params)
         item = self._item(ctx)
+        preset = get_preset(req.preset)
+        info = OutputInfo(
+            file="", size=0, preset=preset.id, preset_name=preset.name, codec=req.codec, quality=req.quality
+        )
         result = pipeline.process(
             self.settings,
             self._source(ctx),
             self.workspace.output_dir(item.rating_key),
             lambda h: self.workspace.output_name(item, h),
-            get_preset(req.preset),
+            preset,
             req.codec,
             req.quality,
             ctx.progress,
             ctx.cancel,
+            video_title=f"Remastr: {info.label}",
         )
-        result["message"] = result.pop("plan")
-        result["file"] = Path(result["file"]).name
+        output = Path(result["file"])
+        info.description = result.pop("plan")
+        info.created_at = datetime.now(UTC)
+        self.workspace.save_output_info(output, info)
+        result["file"] = output.name
+        result["preset"] = preset.id
+        result["message"] = f"{info.label} · {info.description}"
         return result
 
     def _run_upload(self, ctx: JobContext) -> dict[str, Any]:
@@ -228,6 +239,13 @@ class Remastr:
         if not outputs:
             raise RuntimeError("No processed output to upload")
         local = max(outputs, key=lambda p: p.stat().st_mtime)
+        made_with = self.workspace.output_info(item.rating_key, local)
+        provenance = {
+            "preset": made_with.preset,
+            "preset_name": made_with.preset_name,
+            "codec": made_with.codec,
+            "quality": made_with.quality,
+        }
         original = self.paths.to_ftp(item.file)
         remote_dir = posixpath.dirname(original)
         progress = _bytes_progress(ctx)
@@ -241,7 +259,11 @@ class Remastr:
             self.ftp.upload(local, upload_tmp_name(final, local), progress, ctx.cancel)
             self.ftp.rename(upload_tmp_name(final, local), final)
             self.plex.refresh_folder(item.file)
-            return {"message": f"Uploaded as additional version: {local.name}", "remote": final}
+            return {
+                "message": f"Uploaded as additional version ({made_with.label}): {local.name}",
+                "remote": final,
+                **provenance,
+            }
 
         # replace: upload, archive the original, then move the new file into place
         final = posixpath.join(remote_dir, Path(plex_basename(item.file)).stem + ".mkv")
@@ -254,7 +276,12 @@ class Remastr:
         self.ftp.rename(original, archive)
         self.ftp.rename(tmp, final)
         self.plex.refresh_folder(item.file)
-        return {"message": "Original replaced", "remote": final, "archived_original": archive}
+        return {
+            "message": f"Original replaced ({made_with.label})",
+            "remote": final,
+            "archived_original": archive,
+            **provenance,
+        }
 
 
 def upload_tmp_name(final: str, local: Path) -> str:

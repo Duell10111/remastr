@@ -73,6 +73,30 @@ def test_tmp_name_differs_per_local_file(tmp_path):
     assert upload_tmp_name("/tv/a.mkv", f) != first
 
 
+def test_output_info_is_shown_and_reported_on_upload(svc):
+    from remastr.models import OutputInfo
+
+    out = make_output(svc)
+    svc.workspace.save_output_info(
+        out,
+        OutputInfo(
+            file="", size=0, preset="dpir_vsr", preset_name="DPIR deblock + NVIDIA VSR", codec="hevc", quality=26
+        ),
+    )
+    [info] = svc.workspace.local_state(ITEM.rating_key).outputs
+    assert (info.preset, info.quality, info.size) == ("dpir_vsr", 26, len(b"upscaled"))
+    assert info.file == "output/Mickys Clubhaus - s01e01 - Remastr 1080p.mkv"
+    result = run_upload(svc, UploadMode.version)
+    assert result["preset"] == "dpir_vsr"
+    assert "DPIR deblock + NVIDIA VSR, HEVC q26" in result["message"]
+
+
+def test_output_without_info_still_listed(svc):
+    make_output(svc)
+    [info] = svc.workspace.local_state(ITEM.rating_key).outputs
+    assert info.preset is None and info.size > 0
+
+
 def test_upload_waits_for_running_process(svc):
     from remastr.models import ProcessRequest
 

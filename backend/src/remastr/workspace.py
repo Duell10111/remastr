@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 from remastr.config import Settings
-from remastr.models import LocalState, PlexItem, PreviewClip, PreviewRun
+from remastr.models import LocalState, OutputInfo, PlexItem, PreviewClip, PreviewRun
 
 
 def plex_basename(plex_path: str) -> str:
@@ -78,13 +78,27 @@ class Workspace:
             else []
         )
 
+    @staticmethod
+    def _info_path(output: Path) -> Path:
+        return output.with_suffix(".remastr.json")
+
+    def save_output_info(self, output: Path, info: OutputInfo) -> None:
+        self._info_path(output).write_text(info.model_dump_json(indent=2), "utf-8")
+
+    def output_info(self, rating_key: str, output: Path) -> OutputInfo:
+        rel = output.relative_to(self.item_dir(rating_key)).as_posix()
+        meta = self._info_path(output)
+        info = OutputInfo.model_validate_json(meta.read_text("utf-8")) if meta.exists() else None
+        # file and size always reflect the file on disk
+        return (info or OutputInfo(file=rel, size=0)).model_copy(update={"file": rel, "size": output.stat().st_size})
+
     def local_state(self, rating_key: str) -> LocalState:
         base = self.item_dir(rating_key)
         src = self.find_source(rating_key)
         return LocalState(
             source=src.relative_to(base).as_posix() if src else None,
             previews=self.previews(rating_key),
-            outputs=[p.relative_to(base).as_posix() for p in self.outputs(rating_key)],
+            outputs=[self.output_info(rating_key, p) for p in self.outputs(rating_key)],
         )
 
     def resolve(self, rating_key: str, rel_path: str) -> Path:

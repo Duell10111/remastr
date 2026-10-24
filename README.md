@@ -19,8 +19,11 @@ Untertitel aus dem Original, A/V-Versatz ausgeglichen). SD wird auf 1080p hochsk
 
 | Preset | Für | Beschreibung |
 |---|---|---|
-| `dpir_vsr` | Realfilm (Standard) | DPIR-Deblocking + NVIDIA RTX Video Super Resolution, natürlicher Look |
+| `scunet_vsr` | Realfilm (Standard) | SCUNet-Restaurierung (Rauschen, Kompression) + NVIDIA RTX Video Super Resolution, am saubersten |
+| `dpir_vsr` | Realfilm | DPIR-Deblocking + RTX VSR, etwas mehr Textur |
 | `mild_vsr` | Realfilm, schnell | Deblock/Deband + RTX VSR |
+| `swinir_real` | Realfilm, nur kurze Clips | SwinIR real-world (GAN): knackigste Kanten, aber ca. 1,5 fps |
+| `waifu2x_photo` | Realfilm/Fotos | waifu2x swin_unet photo: leichtes Entrauschen + 4x |
 | `esrgan` | Zeichentrick/Anime | Real-ESRGAN animevideov3: saubere Linien, nah am Original |
 | `cugan` | Zeichentrick/Anime | Real-CUGAN pro: am schärfsten, kräftige Konturen |
 | `lanczos` | – | ohne KI, Referenz zum Vergleichen |
@@ -32,7 +35,9 @@ QVBR 26: bei hochskaliertem SD optisch gleich wie 20, aber rund 40 % der Dateigr
 
 - Windows, NVIDIA RTX-GPU mit aktuellem Treiber
 - [StaxRip](https://github.com/staxrip/staxrip) (portable; bringt VapourSynth, QTGMC, NVEncC, mkvmerge mit)
-- [vs-mlrt](https://github.com/AmusementClub/vs-mlrt) (TensorRT-Paket) + `akarin`-Plugin in `<vs-mlrt>/akarin/`
+- [vs-mlrt](https://github.com/AmusementClub/vs-mlrt) (TensorRT-Paket) + `akarin`-Plugin in `<vs-mlrt>/akarin/`;
+  zusätzlich aus dem Release `external-models` die Pakete `scunet_v2`, `swinir_v1` und `waifu2x_swin_unet_v5`
+  nach `<vs-mlrt>/models/` entpacken
 - ffmpeg/ffprobe im `PATH`
 - [uv](https://docs.astral.sh/uv/) und Node.js (LTS)
 

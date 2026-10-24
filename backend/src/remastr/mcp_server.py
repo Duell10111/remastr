@@ -27,7 +27,7 @@ Remastr improves video files from a Plex server with AI upscaling (SD -> 1080p, 
 Typical workflow:
 1. search_media to find movies/episodes (rating_key identifies an item).
 2. create_previews with several presets on a short section; compare the clips (get_item lists them) and let the
-   user choose. Downloading happens automatically when needed. Live action: dpir_vsr (default) or mild_vsr.
+   user choose. Downloading happens automatically when needed. Live action: scunet_vsr (default), dpir_vsr or mild_vsr.
    Cartoons/anime: esrgan or cugan (these make live action look painted).
 3. process_item (or batch_process for many items) with the chosen preset.
 4. upload_result: mode "version" adds the file next to the original (safe, default). Mode "replace" moves the

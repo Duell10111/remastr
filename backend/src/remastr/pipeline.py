@@ -178,7 +178,7 @@ def effective_preset(plan: Plan, preset: Preset) -> Preset:
 
 
 def _output_matrix(plan: Plan, preset: Preset) -> str:
-    if preset.vpy_mode in ("esrgan", "cugan"):
+    if preset.scales_in_vapoursynth:
         return "709"
     return plan.matrix_in
 
@@ -224,7 +224,7 @@ def build_nvencc_cmd(settings: Settings, plan: Plan, preset: Preset, out: Path, 
         "8" if codec == "h264" else "10",
     ]
     cmd += preset.nvenc_filters
-    if preset.vpy_mode in ("dpir", "passthrough") and preset.nvenc_resize and plan.upscale:
+    if not preset.scales_in_vapoursynth and preset.nvenc_resize and plan.upscale:
         cmd += ["--vpp-resize", preset.nvenc_resize, "--output-res", f"{plan.out_w}x{plan.out_h}"]
     cmd += ["--sar", "1:1", "--colormatrix", vui, "--colorprim", vui, "--transfer", vui, "-o", str(out)]
     return cmd
@@ -279,14 +279,15 @@ def run_encode(
         )
 
 
-def mux(settings: Settings, video: Path, source: Path, dest: Path, sync_ms: int) -> None:
-    """Combine the new video with audio + subtitles of the source, compensating the A/V start offset."""
-    cmd = [
-        str(settings.mkvmerge),
-        "-q",
-        "-o",
-        str(dest),
-        "--no-global-tags",
+def mux(
+    settings: Settings, video: Path, source: Path, dest: Path, sync_ms: int, video_title: str | None = None
+) -> None:
+    """Combine the new video with audio + subtitles of the source, compensating the A/V start offset.
+    video_title becomes the video track name (shown by Plex in the media info)."""
+    cmd = [str(settings.mkvmerge), "-q", "-o", str(dest), "--no-global-tags"]
+    if video_title:
+        cmd += ["--track-name", f"0:{video_title}"]
+    cmd += [
         str(video),
         "--no-video",
         "--no-attachments",
@@ -369,6 +370,7 @@ def process(
     quality: int,
     on_progress: ProgressFn | None = None,
     cancel: threading.Event | None = None,
+    video_title: str | None = None,
 ) -> dict:
     """Full-length processing with audio and subtitles. Writes the result atomically."""
     info, plan = analyze(settings, src)
@@ -390,7 +392,7 @@ def process(
         )
         if on_progress:
             on_progress(1.0, "muxing audio/subtitles")
-        mux(settings, tmp_video, src, tmp_mux, round((info.min_start - info.video_start) * 1000))
+        mux(settings, tmp_video, src, tmp_mux, round((info.min_start - info.video_start) * 1000), video_title)
         out_dur = duration_of(settings, tmp_mux)
         if abs(out_dur - info.duration) > 2:
             raise PipelineError(f"Output duration {out_dur:.1f}s differs from source {info.duration:.1f}s")
