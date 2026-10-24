@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { api, formatBytes, formatDuration, itemLabel, type Codec, type PlexItem, type Preset, type UploadMode } from '../api'
+import { api, DEFAULT_QUALITY, formatBytes, formatDuration, itemLabel, type Codec, type PlexItem, type Preset, type UploadMode } from '../api'
 import { useAction, usePoll } from '../hooks'
 
 type Props = { presets: Preset[]; onOpen: (ratingKey: string) => void; onQueued: () => void }
@@ -108,9 +108,10 @@ export function SearchView({ presets, onOpen, onQueued }: Props) {
 }
 
 function BatchPanel({ presets, ratingKeys, onQueued }: { presets: Preset[]; ratingKeys: string[]; onQueued: () => void }) {
-  const [preset, setPreset] = useState(presets[0]?.id ?? 'esrgan')
+  const [chosenPreset, setPreset] = useState<string>()
+  const preset = chosenPreset ?? presets[0]?.id ?? ''
   const [codec, setCodec] = useState<Codec>('hevc')
-  const [quality, setQuality] = useState(20)
+  const [quality, setQuality] = useState(DEFAULT_QUALITY)
   const [upload, setUpload] = useState<'none' | UploadMode>('none')
   const [confirmReplace, setConfirmReplace] = useState(false)
   const action = useAction()

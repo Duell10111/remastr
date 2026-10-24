@@ -6,6 +6,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+DEFAULT_PRESET = "dpir_vsr"
+DEFAULT_QUALITY = 26
+"""QVBR 26: visually identical to 20 on upscaled SD at roughly 40% of the size (tested on 640x360 -> 1080p)."""
+
 
 class Library(BaseModel):
     key: str
@@ -122,9 +126,9 @@ class PreviewRequest(BaseModel):
 
 
 class ProcessRequest(BaseModel):
-    preset: str
+    preset: str = DEFAULT_PRESET
     codec: Literal["hevc", "av1"] = "hevc"
-    quality: int = Field(default=20, ge=1, le=51)
+    quality: int = Field(default=DEFAULT_QUALITY, ge=1, le=51)
     """NVEncC QVBR target; lower = better quality, larger file."""
 
 

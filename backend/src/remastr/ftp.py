@@ -2,6 +2,7 @@
 
 import ftplib
 import posixpath
+import ssl
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -41,7 +42,12 @@ class FtpService:
     def connect(self) -> Iterator[ftplib.FTP]:
         if not self._s.ftp_host:
             raise RuntimeError("REMASTR_FTP_HOST is not configured")
-        ftp: ftplib.FTP = ftplib.FTP_TLS() if self._s.ftp_tls else ftplib.FTP()
+        if self._s.ftp_tls:
+            # ftplib does not verify certificates by default; always verify (optionally against a private CA)
+            cafile = str(self._s.ca_bundle) if self._s.ca_bundle else None
+            ftp: ftplib.FTP = ftplib.FTP_TLS(context=ssl.create_default_context(cafile=cafile))
+        else:
+            ftp = ftplib.FTP()
         ftp.encoding = "utf-8"
         ftp.connect(self._s.ftp_host, self._s.ftp_port, timeout=60)
         ftp.login(self._s.ftp_user, self._s.ftp_password)
@@ -60,6 +66,7 @@ class FtpService:
     @staticmethod
     def _size(ftp: ftplib.FTP, path: str) -> int | None:
         try:
+            ftp.voidcmd("TYPE I")  # listings switch ftplib to ASCII mode, where SIZE is refused
             return ftp.size(path)
         except ftplib.error_perm:
             return None
@@ -109,7 +116,10 @@ class FtpService:
         on_progress: TransferProgress | None = None,
         cancel: threading.Event | None = None,
     ) -> None:
-        """Upload, resuming if the remote file already has a prefix of the data. Verifies the final size."""
+        """Upload, resuming if the remote file is shorter than the local one. Verifies the final size.
+
+        Resuming assumes the remote prefix belongs to the same local file: callers must use a remote name that is
+        unique per local file (see service.upload_tmp_name)."""
         total = local.stat().st_size
         with self.connect() as ftp:
             self._makedirs(ftp, posixpath.dirname(remote))

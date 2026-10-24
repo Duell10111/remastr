@@ -883,6 +883,7 @@ dependencies = [
     { name = "mcp" },
     { name = "plexapi" },
     { name = "pydantic-settings" },
+    { name = "requests" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -900,6 +901,7 @@ requires-dist = [
     { name = "mcp", specifier = ">=2.3.0" },
     { name = "plexapi", specifier = ">=4.18.3" },
     { name = "pydantic-settings", specifier = ">=2.16.1" },
+    { name = "requests", specifier = ">=2.34.2" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
 

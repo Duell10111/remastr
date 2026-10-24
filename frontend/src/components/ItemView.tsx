@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   api,
+  DEFAULT_QUALITY,
   fileUrl,
   formatBytes,
   formatDuration,
@@ -96,7 +97,7 @@ function SourcePanel({ detail, jobs, onQueued }: { detail: ItemDetail; jobs: Job
   )
 }
 
-const DEFAULT_PREVIEW = ['lanczos', 'esrgan', 'cugan', 'mild_vsr']
+const DEFAULT_PREVIEW = ['lanczos', 'dpir_vsr', 'mild_vsr', 'esrgan']
 
 function PreviewPanel({ detail, presets, onQueued }: { detail: ItemDetail; presets: Preset[]; onQueued: () => void }) {
   const [chosen, setChosen] = useState<Set<string>>(new Set(DEFAULT_PREVIEW.filter((id) => presets.some((p) => p.id === id))))
@@ -177,9 +178,10 @@ function PreviewPanel({ detail, presets, onQueued }: { detail: ItemDetail; prese
 }
 
 function ProcessPanel({ detail, presets, onQueued }: { detail: ItemDetail; presets: Preset[]; onQueued: () => void }) {
-  const [preset, setPreset] = useState('esrgan')
+  const [chosenPreset, setPreset] = useState<string>()
+  const preset = chosenPreset ?? presets[0]?.id ?? ''
   const [codec, setCodec] = useState<Codec>('hevc')
-  const [quality, setQuality] = useState(20)
+  const [quality, setQuality] = useState(DEFAULT_QUALITY)
   const action = useAction()
   return (
     <div className="panel">

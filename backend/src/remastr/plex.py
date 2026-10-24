@@ -2,6 +2,7 @@
 
 import threading
 
+import requests
 from plexapi.server import PlexServer
 from plexapi.video import Episode, Movie, Video
 
@@ -21,7 +22,12 @@ class PlexService:
             if self._server is None:
                 if not self._settings.plex_token:
                     raise RuntimeError("REMASTR_PLEX_TOKEN is not configured")
-                self._server = PlexServer(self._settings.plex_url, self._settings.plex_token, timeout=30)
+                session = requests.Session()
+                if self._settings.ca_bundle:
+                    session.verify = str(self._settings.ca_bundle)
+                self._server = PlexServer(
+                    self._settings.plex_url, self._settings.plex_token, session=session, timeout=30
+                )
             return self._server
 
     def libraries(self) -> list[Library]:

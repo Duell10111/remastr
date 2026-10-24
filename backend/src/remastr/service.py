@@ -1,5 +1,6 @@
 """Application service: the single API used by both the REST routes and the MCP tools."""
 
+import hashlib
 import logging
 import posixpath
 from collections.abc import Callable
@@ -119,6 +120,9 @@ class Remastr:
                 raise ValueError("Replace mode needs REMASTR_FTP_ARCHIVE_ROOT (folder outside the Plex libraries)")
         item = self._fetch(rating_key)
         self.paths.to_ftp(item.file)  # fail early on missing mapping
+        if depends_on is None:
+            # Never upload a stale output while a newer one is still being produced
+            depends_on = self._active_job(rating_key, JobType.process)
         if depends_on is None and not self.workspace.outputs(rating_key):
             raise ValueError("No processed output for this item yet; run process first")
         return self.runner.submit(JobType.upload, rating_key, item.display_title, req.model_dump(), depends_on)
@@ -144,10 +148,16 @@ class Remastr:
         """None if the source is local; otherwise the id of an active or newly queued download job."""
         if self.workspace.find_source(item.rating_key):
             return None
-        for job in self.store.list(rating_key=item.rating_key, active_only=True):
-            if job.type == JobType.download:
-                return job.id
+        if (active := self._active_job(item.rating_key, JobType.download)) is not None:
+            return active
         return self.runner.submit(JobType.download, item.rating_key, item.display_title).id
+
+    def _active_job(self, rating_key: str, type: JobType) -> int | None:
+        """Newest queued/running job of the given type for the item."""
+        for job in self.store.list(rating_key=rating_key, active_only=True):  # newest first
+            if job.type == type:
+                return job.id
+        return None
 
     def _item(self, ctx: JobContext) -> PlexItem:
         item = self.workspace.load_item(ctx.job.rating_key)
@@ -222,24 +232,37 @@ class Remastr:
         remote_dir = posixpath.dirname(original)
         progress = _bytes_progress(ctx)
 
+        # Both modes upload under a temporary name Plex ignores and rename at the end, so Plex never indexes a
+        # partial file.
         if req.mode == UploadMode.version:
-            remote = posixpath.join(remote_dir, local.name)
-            self.ftp.upload(local, remote, progress, ctx.cancel)
+            final = posixpath.join(remote_dir, local.name)
+            if self.ftp.exists(final):
+                raise RuntimeError(f"Target {final} already exists; not overwriting")
+            self.ftp.upload(local, upload_tmp_name(final, local), progress, ctx.cancel)
+            self.ftp.rename(upload_tmp_name(final, local), final)
             self.plex.refresh_folder(item.file)
-            return {"message": f"Uploaded as additional version: {local.name}", "remote": remote}
+            return {"message": f"Uploaded as additional version: {local.name}", "remote": final}
 
-        # replace: upload under a temporary name, archive the original, then move the new file into place
+        # replace: upload, archive the original, then move the new file into place
         final = posixpath.join(remote_dir, Path(plex_basename(item.file)).stem + ".mkv")
-        tmp = final + UPLOAD_TMP_SUFFIX
+        tmp = upload_tmp_name(final, local)
         archive = posixpath.join(self.settings.ftp_archive_root, original.lstrip("/"))
-        self.ftp.upload(local, tmp, progress, ctx.cancel)
         if final != original and self.ftp.exists(final):
             raise RuntimeError(f"Target {final} already exists; not overwriting")
+        self.ftp.upload(local, tmp, progress, ctx.cancel)
         ctx.progress(1.0, "archiving original")
         self.ftp.rename(original, archive)
         self.ftp.rename(tmp, final)
         self.plex.refresh_folder(item.file)
         return {"message": "Original replaced", "remote": final, "archived_original": archive}
+
+
+def upload_tmp_name(final: str, local: Path) -> str:
+    """Temporary remote name, unique per local file content version, so a resumed upload only ever continues
+    the same file. The suffix is not a video extension, so Plex ignores it."""
+    st = local.stat()
+    fingerprint = hashlib.sha1(f"{local.name}|{st.st_size}|{st.st_mtime_ns}".encode()).hexdigest()[:10]
+    return f"{final}.{fingerprint}{UPLOAD_TMP_SUFFIX}"
 
 
 def _bytes_progress(ctx: JobContext) -> Callable[[int, int], None]:

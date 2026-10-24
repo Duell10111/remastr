@@ -17,13 +17,16 @@ Pro Datei: Analyse (ffprobe + Interlacing-Erkennung am Bildinhalt) → VapourSyn
 KI-Modell via vs-mlrt/TensorRT) → NVEncC (Filter, Skalierung, HEVC/AV1 in Hardware) → mkvmerge (Ton und
 Untertitel aus dem Original, A/V-Versatz ausgeglichen). SD wird auf 1080p hochskaliert, HD nur deinterlaced.
 
-| Preset | Beschreibung |
-|---|---|
-| `esrgan` | Real-ESRGAN animevideov3: sauber, nah am Original (Standard) |
-| `cugan` | Real-CUGAN pro: am schärfsten, kräftige Konturen |
-| `dpir_vsr` | DPIR-Deblocking + NVIDIA RTX Video Super Resolution |
-| `mild_vsr` | Deblock/Deband + RTX VSR, sehr schnell |
-| `lanczos` | ohne KI, Referenz zum Vergleichen |
+| Preset | Für | Beschreibung |
+|---|---|---|
+| `dpir_vsr` | Realfilm (Standard) | DPIR-Deblocking + NVIDIA RTX Video Super Resolution, natürlicher Look |
+| `mild_vsr` | Realfilm, schnell | Deblock/Deband + RTX VSR |
+| `esrgan` | Zeichentrick/Anime | Real-ESRGAN animevideov3: saubere Linien, nah am Original |
+| `cugan` | Zeichentrick/Anime | Real-CUGAN pro: am schärfsten, kräftige Konturen |
+| `lanczos` | – | ohne KI, Referenz zum Vergleichen |
+
+Die Anime-Modelle lassen Realfilm „gemalt“ wirken (wachsige Haut, Lichthöfe an Kanten). Standard-Qualität ist
+QVBR 26: bei hochskaliertem SD optisch gleich wie 20, aber rund 40 % der Dateigröße.
 
 ## Voraussetzungen (Verarbeitungs-PC)
 

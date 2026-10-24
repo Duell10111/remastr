@@ -1,34 +1,39 @@
-"""Processing variants. Based on the comparison tests with SD cartoon material on an RTX 5070."""
+"""Processing variants, based on comparison tests on an RTX 5070.
 
-from remastr.models import Preset
+Findings: the anime models (esrgan, cugan) look great on cartoons but give live action a painted/waxy look;
+DPIR + RTX VSR stays natural on live action. The default preset comes first (the UI preselects it).
+"""
+
+from remastr.models import DEFAULT_PRESET, Preset
 
 PRESETS: list[Preset] = [
     Preset(
-        id="esrgan",
-        name="Real-ESRGAN animev3",
-        description="Anime/cartoon video model (4x, then scaled to target). Clean and close to the original. Default.",
-        vpy_mode="esrgan",
-    ),
-    Preset(
-        id="cugan",
-        name="Real-CUGAN pro",
-        description="Sharpest result with crisp outlines; can thicken/darken lines. Slower.",
-        vpy_mode="cugan",
-    ),
-    Preset(
         id="dpir_vsr",
         name="DPIR deblock + NVIDIA VSR",
-        description="AI deblocking at source resolution, then RTX Video Super Resolution. Clean but softer.",
+        description="Live action (default): AI deblocking at source resolution, then RTX Video Super Resolution. "
+        "Natural look.",
         vpy_mode="dpir",
         nvenc_resize="algo=ngx-vsr,vsr-quality=4",
     ),
     Preset(
         id="mild_vsr",
         name="Deblock/deband + NVIDIA VSR",
-        description="Classic GPU filters plus RTX Video Super Resolution. Very fast.",
+        description="Live action, fast: classic GPU filters plus RTX Video Super Resolution.",
         vpy_mode="passthrough",
         nvenc_filters=["--vpp-smooth", "quality=4,qp=10", "--vpp-deband", "range=15,thre=10,dither=8"],
         nvenc_resize="algo=ngx-vsr,vsr-quality=4",
+    ),
+    Preset(
+        id="esrgan",
+        name="Real-ESRGAN animev3",
+        description="Cartoons/anime: clean lines, close to the original. Makes live action look painted.",
+        vpy_mode="esrgan",
+    ),
+    Preset(
+        id="cugan",
+        name="Real-CUGAN pro",
+        description="Cartoons/anime: sharpest, crisp outlines; can thicken lines. Not for live action.",
+        vpy_mode="cugan",
     ),
     Preset(
         id="lanczos",
@@ -40,7 +45,7 @@ PRESETS: list[Preset] = [
 ]
 
 _BY_ID = {p.id: p for p in PRESETS}
-DEFAULT_PRESET = "esrgan"
+assert PRESETS[0].id == DEFAULT_PRESET
 
 
 def get_preset(preset_id: str) -> Preset:

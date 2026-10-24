@@ -20,7 +20,7 @@ def test_api_requires_token(settings, svc):
         assert c.get("/api/presets").status_code == 401
         assert c.get("/api/presets", headers={"Authorization": "Bearer wrong"}).status_code == 401
         presets = c.get("/api/presets", headers=AUTH).json()
-        assert presets[0]["id"] == "esrgan"
+        assert presets[0]["id"] == "dpir_vsr"
         assert c.get(f"/api/presets?token={TOKEN}").status_code == 200
 
 

@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     allowed_hosts: list[str] = ["127.0.0.1:*", "localhost:*"]
     """Host headers accepted by the MCP endpoint (DNS rebinding protection), e.g. "my-pc:*"."""
 
+    ca_bundle: Path | None = None
+    """Extra CA certificate (PEM) for Plex HTTPS and FTPS, e.g. a mkcert rootCA.pem. Default: system trust store."""
+
     # --- Plex ---
     plex_url: str = "http://localhost:32400"
     plex_token: str = ""

@@ -6,6 +6,8 @@ from mcp.server.mcpserver import MCPServer
 from mcp_types import ToolAnnotations
 
 from remastr.models import (
+    DEFAULT_PRESET,
+    DEFAULT_QUALITY,
     BatchRequest,
     ItemDetail,
     Job,
@@ -25,7 +27,8 @@ Remastr improves video files from a Plex server with AI upscaling (SD -> 1080p, 
 Typical workflow:
 1. search_media to find movies/episodes (rating_key identifies an item).
 2. create_previews with several presets on a short section; compare the clips (get_item lists them) and let the
-   user choose. Downloading happens automatically when needed.
+   user choose. Downloading happens automatically when needed. Live action: dpir_vsr (default) or mild_vsr.
+   Cartoons/anime: esrgan or cugan (these make live action look painted).
 3. process_item (or batch_process for many items) with the chosen preset.
 4. upload_result: mode "version" adds the file next to the original (safe, default). Mode "replace" moves the
    original to an archive folder and requires confirm=true - only use it when the user explicitly asked for it.
@@ -72,7 +75,10 @@ def build_mcp(svc: Remastr) -> MCPServer:
 
     @mcp.tool(annotations=QUEUES_WORK)
     def process_item(
-        rating_key: str, preset: str = "esrgan", codec: Literal["hevc", "av1"] = "hevc", quality: int = 20
+        rating_key: str,
+        preset: str = DEFAULT_PRESET,
+        codec: Literal["hevc", "av1"] = "hevc",
+        quality: int = DEFAULT_QUALITY,
     ) -> Job:
         """Queue full-length processing (with audio and subtitles). quality: lower = better/larger (QVBR)."""
         return svc.process(rating_key, ProcessRequest(preset=preset, codec=codec, quality=quality))
@@ -86,9 +92,9 @@ def build_mcp(svc: Remastr) -> MCPServer:
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=True))
     def batch_process(
         rating_keys: list[str],
-        preset: str = "esrgan",
+        preset: str = DEFAULT_PRESET,
         codec: Literal["hevc", "av1"] = "hevc",
-        quality: int = 20,
+        quality: int = DEFAULT_QUALITY,
         upload_mode: Literal["none", "version", "replace"] = "none",
         confirm_replace: bool = False,
     ) -> list[Job]:
