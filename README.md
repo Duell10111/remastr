@@ -36,6 +36,10 @@ QVBR 26: bei hochskaliertem SD optisch gleich wie 20, aber rund 40 % der Dateigr
 
 ## Voraussetzungen (Verarbeitungs-PC)
 
+Schnellster Weg: in Claude Code im Repo `/setup-prerequisites` aufrufen. Der Skill prüft, was fehlt, und
+installiert StaxRip, vs-mlrt und alle Modelle Schritt für Schritt. Nur prüfen:
+`powershell -ExecutionPolicy Bypass -File .claude/skills/setup-prerequisites/check.ps1`.
+
 - Windows, NVIDIA RTX-GPU mit aktuellem Treiber
 - [StaxRip](https://github.com/staxrip/staxrip) (portable; bringt VapourSynth, QTGMC, NVEncC, mkvmerge mit)
 - [vs-mlrt](https://github.com/AmusementClub/vs-mlrt) (TensorRT-Paket) + `akarin`-Plugin in `<vs-mlrt>/akarin/`;
