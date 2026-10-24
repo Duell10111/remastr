@@ -97,7 +97,7 @@ function SourcePanel({ detail, jobs, onQueued }: { detail: ItemDetail; jobs: Job
   )
 }
 
-const DEFAULT_PREVIEW = ['lanczos', 'scunet_vsr', 'dpir_vsr', 'esrgan']
+const DEFAULT_PREVIEW = ['lanczos', 'realesr_general', 'scunet_vsr', 'dpir_vsr']
 
 function PreviewPanel({ detail, presets, onQueued }: { detail: ItemDetail; presets: Preset[]; onQueued: () => void }) {
   const [chosen, setChosen] = useState<Set<string>>(new Set(DEFAULT_PREVIEW.filter((id) => presets.some((p) => p.id === id))))

@@ -28,7 +28,7 @@ from remastr.models import (
     UploadRequest,
 )
 from remastr.plex import PlexService
-from remastr.presets import PRESETS, get_preset
+from remastr.presets import PRESETS, get_preset, load_extra_presets
 from remastr.workspace import Workspace, plex_basename
 
 log = logging.getLogger(__name__)
@@ -43,6 +43,8 @@ class Remastr:
         self.ftp = ftp or FtpService(settings)
         self.paths = PathMapper(settings.path_mappings)
         self.workspace = Workspace(settings)
+        if extra := load_extra_presets(settings.work_dir / "presets.json"):
+            log.info("Loaded %d extra presets: %s", len(extra), ", ".join(p.id for p in extra))
         self.store = JobStore(settings.work_dir / "remastr.db")
         self.runner = JobRunner(
             self.store,

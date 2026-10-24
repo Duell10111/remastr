@@ -1,7 +1,7 @@
 # VapourSynth pipeline used by remastr.pipeline (run through vspipe).
 # Args (vspipe -a): src, cache, plugins (StaxRip Apps/Plugins), mlrt (vs-mlrt dir),
-#                   deint (none|tff|bff), mode (esrgan|cugan|swinir|waifu2x|dpir|scunet|passthrough),
-#                   outw, outh, matrix_in
+#                   deint (none|tff|bff), mode (esrgan|cugan|swinir|waifu2x|onnx|dpir|scunet|passthrough),
+#                   outw, outh, matrix_in, onnx (model path, mode "onnx" only)
 import sys
 
 import vapoursynth as vs
@@ -67,6 +67,10 @@ elif mode == "swinir":
 elif mode == "waifu2x":
     # The photo models are 4x only (vsmlrt would downscale other factors), so resize once to the target below
     rgb = vsmlrt.Waifu2x(rgb, noise=1, scale=4, model=vsmlrt.Waifu2xModel.swin_unet_photo_v2, backend=backend)
+    out = core.resize.Spline36(rgb, outw, outh, format=vs.YUV420P10, matrix_s="709")
+elif mode == "onnx":
+    # Any upscaling ONNX model (e.g. converted Real-ESRGAN); output is resized to the target
+    rgb = vsmlrt.inference(rgb, network_path=globals()["onnx"], backend=backend)
     out = core.resize.Spline36(rgb, outw, outh, format=vs.YUV420P10, matrix_s="709")
 elif mode == "dpir":
     # Deblocking only; NVEncC scales afterwards. Keep the source matrix.

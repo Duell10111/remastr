@@ -54,6 +54,48 @@ def test_scaling_stage_per_preset(settings):
     assert "--vpp-resize" not in swinir and "bt709" in swinir
 
 
+def test_onnx_preset_passes_model_path(settings):
+    plan = make_plan(info(640, 360, 16 / 9), "none", 1080)
+    cmd = build_vspipe_cmd(settings, Path("in.mp4"), plan, get_preset("realesr_general"), Path("c.lwi"))
+    onnx = next(a for a in cmd if a.startswith("onnx="))
+    assert onnx.endswith(str(Path("models/remastr/realesr-general-x4v3.onnx")))
+    nvenc = build_nvencc_cmd(settings, plan, get_preset("realesr_general"), Path("o.mkv"), "hevc", 26)
+    assert "--vpp-resize" not in nvenc  # VapourSynth scales
+
+
+def test_extra_presets_from_json(tmp_path):
+    import json
+
+    import pytest
+
+    from remastr.presets import load_extra_presets
+
+    path = tmp_path / "presets.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "my_model",
+                    "name": "Mine",
+                    "description": "test",
+                    "vpy_mode": "onnx",
+                    "onnx_model": "C:/models/mine.onnx",
+                }
+            ]
+        )
+    )
+    from remastr import presets
+
+    try:
+        assert [p.id for p in load_extra_presets(path)] == ["my_model"]
+        assert get_preset("my_model").onnx_model == "C:/models/mine.onnx"
+        with pytest.raises(ValueError, match="already exists"):
+            load_extra_presets(path)
+    finally:  # presets are module-global; don't leak into other tests
+        presets.PRESETS[:] = [p for p in presets.PRESETS if p.id != "my_model"]
+        presets._BY_ID.pop("my_model", None)
+
+
 def test_preview_uses_h264_8bit(settings):
     plan = make_plan(info(720, 576, 4 / 3), "none", 1080)
     cmd = build_nvencc_cmd(settings, plan, get_preset("esrgan"), Path("p.mp4"), "h264", 20)

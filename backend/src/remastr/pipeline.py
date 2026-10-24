@@ -198,6 +198,10 @@ def build_vspipe_cmd(
         "outh": str(plan.out_h),
         "matrix_in": plan.matrix_in,
     }
+    if preset.vpy_mode == "onnx":
+        if not preset.onnx_model:
+            raise PipelineError(f"Preset {preset.id} has no onnx_model")
+        args["onnx"] = str(settings.vsmlrt_dir / "models" / preset.onnx_model)  # absolute paths stay absolute
     cmd = [str(settings.vspipe), "-c", "y4m"]
     for k, v in args.items():
         cmd += ["-a", f"{k}={v}"]

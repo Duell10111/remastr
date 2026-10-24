@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-DEFAULT_PRESET = "scunet_vsr"
+DEFAULT_PRESET = "realesr_general"
 DEFAULT_QUALITY = 26
 """QVBR 26: visually identical to 20 on upscaled SD at roughly 40% of the size (tested on 640x360 -> 1080p)."""
 
@@ -46,8 +46,10 @@ class Preset(BaseModel):
     id: str
     name: str
     description: str
-    vpy_mode: Literal["esrgan", "cugan", "swinir", "waifu2x", "dpir", "scunet", "passthrough"]
+    vpy_mode: Literal["esrgan", "cugan", "swinir", "waifu2x", "onnx", "dpir", "scunet", "passthrough"]
     """VapourSynth stage (see remastr.vpy). Upscaling modes scale there; the others leave scaling to NVEncC."""
+    onnx_model: str | None = None
+    """vpy_mode "onnx": upscaling model (NCHW RGB, input named "input"), relative to <vs-mlrt>/models or absolute."""
     nvenc_filters: list[str] = []
     """Extra NVEncC filter arguments (before scaling)."""
     nvenc_resize: str | None = None
@@ -55,7 +57,7 @@ class Preset(BaseModel):
 
     @property
     def scales_in_vapoursynth(self) -> bool:
-        return self.vpy_mode in ("esrgan", "cugan", "swinir", "waifu2x")
+        return self.vpy_mode in ("esrgan", "cugan", "swinir", "waifu2x", "onnx")
 
 
 class PreviewClip(BaseModel):

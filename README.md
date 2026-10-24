@@ -19,9 +19,12 @@ Untertitel aus dem Original, A/V-Versatz ausgeglichen). SD wird auf 1080p hochsk
 
 | Preset | Für | Beschreibung |
 |---|---|---|
-| `scunet_vsr` | Realfilm (Standard) | SCUNet-Restaurierung (Rauschen, Kompression) + NVIDIA RTX Video Super Resolution, am saubersten |
+| `realesr_general` | Realfilm (Standard), GAN, schnell | Real-ESRGAN general x4v3: deutlichster HD-Look, scharfe Kanten und Textur |
+| `scunet_vsr` | Realfilm | SCUNet-Restaurierung (Rauschen, Kompression) + NVIDIA RTX Video Super Resolution, am saubersten, aber weich |
 | `dpir_vsr` | Realfilm | DPIR-Deblocking + RTX VSR, etwas mehr Textur |
 | `mild_vsr` | Realfilm, schnell | Deblock/Deband + RTX VSR |
+| `realesr_general_dn` | Realfilm, GAN, schnell | general x4v3 mit 50 % Entrauschung, für verrauschte/blockige Quellen |
+| `realesrgan_x4plus` | Realfilm, GAN, langsam | Real-ESRGAN x4plus: stärkste Schärfung, Haut wirkt teils gemalt (~4–5 fps) |
 | `swinir_real` | Realfilm, nur kurze Clips | SwinIR real-world (GAN): knackigste Kanten, aber ca. 1,5 fps |
 | `waifu2x_photo` | Realfilm/Fotos | waifu2x swin_unet photo: leichtes Entrauschen + 4x |
 | `esrgan` | Zeichentrick/Anime | Real-ESRGAN animevideov3: saubere Linien, nah am Original |
@@ -38,6 +41,21 @@ QVBR 26: bei hochskaliertem SD optisch gleich wie 20, aber rund 40 % der Dateigr
 - [vs-mlrt](https://github.com/AmusementClub/vs-mlrt) (TensorRT-Paket) + `akarin`-Plugin in `<vs-mlrt>/akarin/`;
   zusätzlich aus dem Release `external-models` die Pakete `scunet_v2`, `swinir_v1` und `waifu2x_swin_unet_v5`
   nach `<vs-mlrt>/models/` entpacken
+- Real-ESRGAN-Presets: die offiziellen `.pth`-Gewichte mit `backend/tools/convert_realesrgan.py` nach
+  `<vs-mlrt>/models/remastr/` konvertieren (Anleitung im Skript)
+
+### Eigene Modelle
+
+Jedes Upscaling-Modell im ONNX-Format (Eingang `input`, NCHW, RGB 0..1) lässt sich ohne Codeänderung als Preset
+einbinden, über `<REMASTR_WORK_DIR>/presets.json`:
+
+```json
+[{"id": "my_model", "name": "Mein Modell", "description": "…", "vpy_mode": "onnx",
+  "onnx_model": "C:/models/4x-mein-modell.onnx"}]
+```
+
+### Weitere Voraussetzungen
+
 - ffmpeg/ffprobe im `PATH`
 - [uv](https://docs.astral.sh/uv/) und Node.js (LTS)
 
