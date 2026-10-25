@@ -33,6 +33,21 @@ matrix_in = globals().get("matrix_in", "170m")
 
 clip = core.lsmas.LWLibavSource(src, cachefile=cache)
 
+
+def padded(rgb, multiple, model):
+    """Run model on rgb mirror-padded to a multiple of `multiple` (e.g. DPIR needs 8, 640x462 sources exist),
+    then crop the padding off the (possibly upscaled) result."""
+    w, h = rgb.width, rgb.height
+    pad_w, pad_h = -w % multiple, -h % multiple
+    if pad_w:
+        rgb = core.std.StackHorizontal([rgb, core.std.FlipHorizontal(rgb.std.Crop(left=w - pad_w))])
+    if pad_h:
+        rgb = core.std.StackVertical([rgb, core.std.FlipVertical(rgb.std.Crop(top=h - pad_h))])
+    rgb = model(rgb)
+    scale = rgb.width // (w + pad_w)
+    return rgb.std.Crop(right=pad_w * scale, bottom=pad_h * scale)
+
+
 if deint in ("tff", "bff"):
     # QTGMC double-rate deinterlacing (25i -> 50p) with StaxRip's plugin set
     for dll in (r"\VS\mvtools\libmvtools.dll", r"\VS\nnedi3\libnnedi3.dll", r"\VS\nnedi3\vsznedi3.dll",
@@ -61,7 +76,8 @@ if mode == "esrgan":
     out = core.resize.Spline36(rgb, outw, outh, format=vs.YUV420P10, matrix_s="709")
 elif mode == "cugan":
     scale = 2 if clip.height * 2 >= outh else 3
-    rgb = vsmlrt.CUGAN(rgb, noise=-1, scale=scale, version=2, backend=backend)
+    # vsmlrt asks for a multiple of 2, but the 3x model fails to build for e.g. 462 lines
+    rgb = padded(rgb, 4, lambda c: vsmlrt.CUGAN(c, noise=-1, scale=scale, version=2, backend=backend))
     out = core.resize.Spline36(rgb, outw, outh, format=vs.YUV420P10, matrix_s="709")
 elif mode == "swinir":
     # Real-world SR trained on realistic degradations (BSRGAN), GAN variant: most texture, slowest
@@ -75,19 +91,13 @@ elif mode == "onnx":
     # Any upscaling ONNX model (e.g. converted Real-ESRGAN); output is resized to the target.
     # Models with a size multiple (window attention, e.g. HAT) get mirror padding, cropped again afterwards.
     m = int(globals().get("multiple", "1"))
-    w, h = rgb.width, rgb.height
-    pad_w, pad_h = -w % m, -h % m
-    if pad_w:
-        rgb = core.std.StackHorizontal([rgb, core.std.FlipHorizontal(rgb.std.Crop(left=w - pad_w))])
-    if pad_h:
-        rgb = core.std.StackVertical([rgb, core.std.FlipVertical(rgb.std.Crop(top=h - pad_h))])
-    rgb = vsmlrt.inference(rgb, network_path=globals()["onnx"], backend=backend)
-    scale = rgb.width // (w + pad_w)
-    rgb = rgb.std.Crop(right=pad_w * scale, bottom=pad_h * scale)
+    rgb = padded(rgb, m, lambda c: vsmlrt.inference(c, network_path=globals()["onnx"], backend=backend))
     out = core.resize.Spline36(rgb, outw, outh, format=vs.YUV420P10, matrix_s="709")
 elif mode == "dpir":
     # Deblocking only; NVEncC scales afterwards. Keep the source matrix.
-    rgb = vsmlrt.DPIR(rgb, strength=25, model=vsmlrt.DPIRModel.drunet_deblocking_color, backend=backend)
+    rgb = padded(
+        rgb, 8, lambda c: vsmlrt.DPIR(c, strength=25, model=vsmlrt.DPIRModel.drunet_deblocking_color, backend=backend)
+    )
     out = core.resize.Bicubic(rgb, format=vs.YUV420P10, matrix_s=matrix_in)
 elif mode == "scunet":
     # Blind real-world restoration (noise + compression) at source resolution; NVEncC scales afterwards
