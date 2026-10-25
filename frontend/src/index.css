@@ -108,6 +108,7 @@ td:first-child, th:first-child { width: 32px; }
   flex-direction: row; align-items: flex-start; gap: 8px; color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px;
 }
+.version-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
 .preset > span { display: flex; flex-direction: column; gap: 2px; }
 
 .compare { margin-top: 14px; }

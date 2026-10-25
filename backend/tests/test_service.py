@@ -1,7 +1,7 @@
 import pytest
 
 from remastr.jobs import JobContext
-from remastr.models import JobType, UploadMode, UploadRequest
+from remastr.models import JobType, UploadMode, UploadRequest, VersionRequest
 
 from .conftest import ITEM
 
@@ -151,3 +151,47 @@ def test_preview_only_presets_are_refused_for_whole_files(svc):
 
     with pytest.raises(ValueError, match="previews only"):
         svc.process(ITEM.rating_key, ProcessRequest(preset="real_hat"))
+
+
+def two_versions(svc):
+    from remastr.models import MediaVersion
+
+    hd = MediaVersion(file="/data/tv/Mickys Clubhaus/Season 01/Mickys Clubhaus - s01e01 - HD.mkv", height=1080)
+    sd = MediaVersion(file=ITEM.file, width=720, height=576)
+    item = ITEM.model_copy(update={"versions": [hd, sd], **hd.model_dump(exclude={"bitrate"})})
+    svc.plex.item = lambda rk: item
+    svc.plex.search = lambda *a, **k: [item]
+    return hd, sd
+
+
+def test_select_version_is_used_everywhere_and_discards_other_source(svc):
+    hd, sd = two_versions(svc)
+    assert svc.item(ITEM.rating_key).item.file == hd.file
+    src = svc.workspace.item_dir(ITEM.rating_key) / "source" / "hd.mkv"
+    src.parent.mkdir(parents=True)
+    src.write_bytes(b"hd")
+
+    detail = svc.select_version(ITEM.rating_key, VersionRequest(file=sd.file))
+    assert detail.item.file == sd.file and detail.item.height == 576 and detail.item.version_pinned
+    assert detail.local.source is None
+    assert svc.search("micky")[0].file == sd.file
+    assert svc.workspace.load_item(ITEM.rating_key).file == sd.file
+    assert svc.workspace.output_name(svc.item(ITEM.rating_key).item, 1080).startswith("Mickys Clubhaus - s01e01 -")
+
+    detail = svc.select_version(ITEM.rating_key, VersionRequest(file=None))
+    assert detail.item.file == hd.file and not detail.item.version_pinned
+
+
+def test_select_version_rejects_unknown_file_and_active_jobs(svc):
+    two_versions(svc)
+    with pytest.raises(ValueError, match="not an original version"):
+        svc.select_version(ITEM.rating_key, VersionRequest(file="/data/tv/other.mkv"))
+    svc.store.create(JobType.download, ITEM.rating_key)
+    with pytest.raises(ValueError, match="still queued or running"):
+        svc.select_version(ITEM.rating_key, VersionRequest(file=ITEM.file))
+
+
+def test_vanished_selection_falls_back_to_default(svc):
+    hd, _ = two_versions(svc)
+    svc.workspace.select_version(ITEM.rating_key, "/data/tv/gone.mkv")
+    assert svc.item(ITEM.rating_key).item.file == hd.file

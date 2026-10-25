@@ -18,6 +18,7 @@ from remastr.models import (
     ProcessRequest,
     UploadMode,
     UploadRequest,
+    VersionRequest,
 )
 from remastr.service import Remastr
 
@@ -25,7 +26,9 @@ INSTRUCTIONS = """\
 Remastr improves video files from a Plex server with AI upscaling (SD -> 1080p, deinterlacing for TV recordings).
 
 Typical workflow:
-1. search_media to find movies/episodes (rating_key identifies an item).
+1. search_media to find movies/episodes (rating_key identifies an item). If an item has several original
+   versions (get_item: versions), the first one Plex lists is used; select_version picks another, e.g. when a
+   lower-resolution file is actually the better source.
 2. create_previews with several presets on a short section; compare the clips (get_item lists them) and let the
    user choose. Downloading happens automatically when needed.
    Live action: realesr_general (default), scunet_vsr (cleaner, softer) or dpir_vsr.
@@ -65,6 +68,13 @@ def build_mcp(svc: Remastr) -> MCPServer:
     def list_presets() -> list[Preset]:
         """Available processing presets (AI models / filter chains)."""
         return svc.presets()
+
+    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=True))
+    def select_version(rating_key: str, file: str | None = None) -> ItemDetail:
+        """Choose the original version (a path from get_item's versions) that downloads, previews, processing and
+        uploads use. file=None returns to the default (the first original Plex lists). A downloaded source of a
+        different version is discarded. Fails while jobs for the item are queued or running."""
+        return svc.select_version(rating_key, VersionRequest(file=file))
 
     @mcp.tool(annotations=QUEUES_WORK)
     def download_item(rating_key: str) -> Job:

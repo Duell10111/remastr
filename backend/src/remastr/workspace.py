@@ -2,12 +2,15 @@
 
 <work_dir>/items/<rating_key>/
     item.json                 snapshot of the Plex metadata
+    original.json             manually chosen original version (Plex path), if any
     source/<original name>    downloaded original
     previews/<run id>/        preview clips (<preset>.mp4) + preview.json
     output/<name>.mkv         processed full-length files
 """
 
+import json
 import re
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -37,6 +40,21 @@ class Workspace:
     def load_item(self, rating_key: str) -> PlexItem | None:
         p = self.item_dir(rating_key) / "item.json"
         return PlexItem.model_validate_json(p.read_text("utf-8")) if p.exists() else None
+
+    def selected_version(self, rating_key: str) -> str | None:
+        p = self.item_dir(rating_key) / "original.json"
+        return json.loads(p.read_text("utf-8"))["file"] if p.exists() else None
+
+    def select_version(self, rating_key: str, file: str | None) -> None:
+        p = self.item_dir(rating_key) / "original.json"
+        if file is None:
+            p.unlink(missing_ok=True)
+        else:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps({"file": file}, ensure_ascii=False), "utf-8")
+
+    def discard_source(self, rating_key: str) -> None:
+        shutil.rmtree(self.item_dir(rating_key) / "source", ignore_errors=True)
 
     def source_target(self, item: PlexItem) -> Path:
         return self.item_dir(item.rating_key) / "source" / plex_basename(item.file)

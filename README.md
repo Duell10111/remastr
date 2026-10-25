@@ -121,9 +121,17 @@ Endpoint: `http://<pc>:8765/mcp` (Streamable HTTP, Bearer-Token). Beispiel Claud
 claude mcp add --transport http remastr http://my-pc:8765/mcp --header "Authorization: Bearer <token>"
 ```
 
-Tools: `search_media`, `get_item`, `list_presets`, `download_item`, `create_previews`, `process_item`,
+Tools: `search_media`, `get_item`, `select_version`, `list_presets`, `download_item`, `create_previews`, `process_item`,
 `upload_result`, `batch_process`, `list_jobs`, `get_job`, `cancel_job`. Ersetzen von Originalen
 (`mode="replace"`) erfordert `confirm=true`.
+
+## Mehrere Original-Versionen
+
+Hat ein Titel in Plex mehrere Originaldateien (z. B. eine HD- und eine SD-Aufnahme), nimmt Remastr die erste, die Plex
+liefert. In der Titelansicht unter „Original“ (oder per MCP `select_version`) lässt sich eine andere wählen, etwa wenn
+die Version mit niedrigerer Auflösung die bessere Quelle ist. Die Wahl gilt pro Titel für Download, Vorschau,
+Verarbeitung und Upload (Dateiname, Zielordner, bei „replace“ wird genau diese Version ersetzt). Eine bereits
+heruntergeladene Datei der anderen Version wird beim Wechsel verworfen; Vorschauen und Ergebnisse bleiben.
 
 ## Upload-Modi
 

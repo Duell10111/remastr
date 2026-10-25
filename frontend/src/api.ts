@@ -2,6 +2,19 @@
 
 export type Library = { key: string; title: string; type: string }
 
+/** One original file; Plex groups several files of the same title as versions. */
+export type MediaVersion = {
+  file: string
+  size: number | null
+  width: number | null
+  height: number | null
+  duration_s: number | null
+  container: string | null
+  video_codec: string | null
+  /** kbit/s */
+  bitrate: number | null
+}
+
 export type PlexItem = {
   rating_key: string
   title: string
@@ -18,6 +31,10 @@ export type PlexItem = {
   duration_s: number | null
   container: string | null
   video_codec: string | null
+  /** All originals; file/size/width/... above describe the selected one. */
+  versions: MediaVersion[]
+  /** Chosen manually instead of the first original Plex lists. */
+  version_pinned: boolean
 }
 
 export type Preset = { id: string; name: string; description: string; preview_only: boolean }
@@ -119,6 +136,8 @@ export const api = {
     request<PlexItem[]>('GET', `/api/search?q=${enc(q)}${library ? `&library=${enc(library)}` : ''}`),
   presets: () => request<Preset[]>('GET', '/api/presets'),
   item: (rk: string) => request<ItemDetail>('GET', `/api/items/${rk}`),
+  /** file null = back to the default version. */
+  selectVersion: (rk: string, file: string | null) => request<ItemDetail>('PUT', `/api/items/${rk}/version`, { file }),
   download: (rk: string) => request<Job>('POST', `/api/items/${rk}/download`),
   preview: (rk: string, presets: string[], start_s: number, duration_s: number) =>
     request<Job>('POST', `/api/items/${rk}/previews`, { presets, start_s, duration_s }),
@@ -154,6 +173,11 @@ export function itemLabel(item: PlexItem): string {
 export function formatBytes(n: number | null | undefined): string {
   if (!n) return '–'
   return n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : `${(n / 1e6).toFixed(0)} MB`
+}
+
+export function formatBitrate(kbps: number | null | undefined): string {
+  if (!kbps) return '–'
+  return kbps >= 1000 ? `${(kbps / 1000).toFixed(1)} Mbit/s` : `${kbps} kbit/s`
 }
 
 export function formatDuration(s: number | null | undefined): string {

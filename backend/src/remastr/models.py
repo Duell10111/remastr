@@ -20,6 +20,20 @@ class Library(BaseModel):
     type: str
 
 
+class MediaVersion(BaseModel):
+    """One original file of an item. Plex groups several files of the same title as versions."""
+
+    file: str
+    size: int | None = None
+    width: int | None = None
+    height: int | None = None
+    duration_s: float | None = None
+    container: str | None = None
+    video_codec: str | None = None
+    bitrate: int | None = None
+    """Overall bitrate in kbit/s."""
+
+
 class PlexItem(BaseModel):
     rating_key: str
     title: str
@@ -37,6 +51,16 @@ class PlexItem(BaseModel):
     duration_s: float | None = None
     container: str | None = None
     video_codec: str | None = None
+    versions: list[MediaVersion] = []
+    """All original versions (remastr uploads excluded). file/size/width/... above describe the selected one."""
+    version_pinned: bool = False
+    """The version was chosen manually; otherwise it is the first original Plex lists."""
+
+    def with_version(self, file: str, pinned: bool) -> "PlexItem":
+        v = next((v for v in self.versions if v.file == file), None)
+        if v is None:
+            raise ValueError(f"{file} is not an original version of item {self.rating_key}")
+        return self.model_copy(update={**v.model_dump(exclude={"bitrate"}), "version_pinned": pinned})
 
     @property
     def display_title(self) -> str:
@@ -183,6 +207,11 @@ class ProcessRequest(BaseModel):
         if self.quality is not None and self.codec == "hevc" and self.quality > 51:
             raise ValueError("HEVC quality must be 1-51")
         return self
+
+
+class VersionRequest(BaseModel):
+    file: str | None = None
+    """Plex path of the original version to work with. None = automatic (the first original Plex lists)."""
 
 
 class UploadRequest(BaseModel):

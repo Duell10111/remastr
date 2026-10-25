@@ -26,6 +26,7 @@ from remastr.models import (
     ProcessRequest,
     UploadMode,
     UploadRequest,
+    VersionRequest,
 )
 from remastr.plex import PlexService
 from remastr.presets import PRESETS, get_preset, load_extra_presets
@@ -69,15 +70,14 @@ class Remastr:
         return self.plex.libraries()
 
     def search(self, query: str, library: str | None = None, limit: int = 50) -> list[PlexItem]:
-        return self.plex.search(query, library, limit)
+        return [self._with_selected_version(i) for i in self.plex.search(query, library, limit)]
 
     def presets(self) -> list[Preset]:
         return PRESETS
 
     def item(self, rating_key: str) -> ItemDetail:
         try:
-            item = self.plex.item(rating_key)
-            self.workspace.save_item(item)
+            item = self._fetch(rating_key)
         except Exception:
             item = self.workspace.load_item(rating_key)
             if item is None:
@@ -95,6 +95,22 @@ class Remastr:
         return self.workspace.resolve(rating_key, rel_path)
 
     # ----------------------------------------------------------------- commands
+
+    def select_version(self, rating_key: str, req: VersionRequest) -> ItemDetail:
+        """Choose which original version downloads, previews, processing and uploads use. A downloaded source of
+        a different version is discarded; previews and outputs stay."""
+        if self.store.list(rating_key=rating_key, active_only=True):
+            raise ValueError("Jobs for this item are still queued or running; wait or cancel them first")
+        current = self._fetch(rating_key)
+        if req.file is None:
+            new = current.with_version(current.versions[0].file, pinned=False)
+        else:
+            new = current.with_version(req.file, pinned=True)  # raises for unknown paths
+        self.workspace.select_version(rating_key, req.file)
+        if new.file != current.file:
+            self.workspace.discard_source(rating_key)
+        self.workspace.save_item(new)
+        return ItemDetail(item=new, local=self.workspace.local_state(rating_key))
 
     def cancel_job(self, job_id: int) -> Job:
         return self.runner.cancel(job_id)
@@ -145,9 +161,19 @@ class Remastr:
     # ---------------------------------------------------------------- internals
 
     def _fetch(self, rating_key: str) -> PlexItem:
-        item = self.plex.item(rating_key)
+        item = self._with_selected_version(self.plex.item(rating_key))
         self.workspace.save_item(item)
         return item
+
+    def _with_selected_version(self, item: PlexItem) -> PlexItem:
+        """Apply the manually chosen original version. If Plex no longer has that file, fall back to the default."""
+        selected = self.workspace.selected_version(item.rating_key)
+        if selected is None:
+            return item
+        if not any(v.file == selected for v in item.versions):
+            log.warning("Selected version %s of item %s is gone, using %s", selected, item.rating_key, item.file)
+            return item
+        return item.with_version(selected, pinned=True)
 
     def _source_dependency(self, item: PlexItem) -> int | None:
         """None if the source is local; otherwise the id of an active or newly queued download job."""

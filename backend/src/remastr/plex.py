@@ -9,7 +9,7 @@ from plexapi.server import PlexServer
 from plexapi.video import Episode, Movie, Video
 
 from remastr.config import Settings
-from remastr.models import Library, PlexItem
+from remastr.models import Library, MediaVersion, PlexItem
 
 
 class PlexService:
@@ -74,19 +74,30 @@ class PlexService:
                 return
         raise ValueError(f"No Plex library contains {folder}")
 
-    def _original_media(self, video: Video) -> Media:
+    def _original_media(self, video: Video) -> list[Media]:
         """Plex groups remastr's "version" uploads (<name> - Remastr 1080p.mkv) with the original as versions of one
-        item, in no guaranteed order. Downloads, output names and "replace" must always use the original."""
+        item, in no guaranteed order. Downloads, output names and "replace" must always use an original."""
         suffix = re.escape(self._settings.version_suffix).replace(r"\{height\}", r"\d+")
         is_remastr = re.compile(suffix + r"\.[^./\\]+$")
         originals = [m for m in video.media if m.parts and not is_remastr.search(m.parts[0].file)]
         if not originals:
             raise ValueError(f"Item {video.ratingKey} only has remastr versions, no original file")
-        return originals[0]
+        return originals
 
     def _to_item(self, video: Video) -> PlexItem:
-        media = self._original_media(video)
-        part = media.parts[0]
+        versions = [
+            MediaVersion(
+                file=m.parts[0].file,
+                size=m.parts[0].size,
+                width=m.width,
+                height=m.height,
+                duration_s=(m.duration or video.duration or 0) / 1000 or None,
+                container=m.container,
+                video_codec=m.videoCodec,
+                bitrate=m.bitrate,
+            )
+            for m in self._original_media(video)
+        ]
         is_episode = isinstance(video, Episode)
         return PlexItem(
             rating_key=str(video.ratingKey),
@@ -97,11 +108,6 @@ class PlexService:
             season=video.parentIndex if is_episode else None,
             episode=video.index if is_episode else None,
             year=getattr(video, "year", None),
-            file=part.file,
-            size=part.size,
-            width=media.width,
-            height=media.height,
-            duration_s=(media.duration or video.duration or 0) / 1000 or None,
-            container=media.container,
-            video_codec=media.videoCodec,
+            versions=versions,
+            **versions[0].model_dump(exclude={"bitrate"}),
         )

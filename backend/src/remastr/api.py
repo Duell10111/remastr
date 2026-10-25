@@ -13,6 +13,7 @@ from remastr.models import (
     PreviewRequest,
     ProcessRequest,
     UploadRequest,
+    VersionRequest,
 )
 from remastr.service import Remastr
 
@@ -51,6 +52,14 @@ def presets(request: Request) -> list[Preset]:
 def item(request: Request, rating_key: str) -> ItemDetail:
     try:
         return _svc(request).item(rating_key)
+    except ValueError as e:
+        raise _bad_request(e) from e
+
+
+@router.put("/items/{rating_key}/version")
+def select_version(request: Request, rating_key: str, body: VersionRequest) -> ItemDetail:
+    try:
+        return _svc(request).select_version(rating_key, body)
     except ValueError as e:
         raise _bad_request(e) from e
 

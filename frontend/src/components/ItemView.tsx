@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   api,
   fileUrl,
+  formatBitrate,
   formatBytes,
   formatDuration,
   itemLabel,
@@ -43,7 +44,7 @@ export function ItemView({ ratingKey, presets, onBack }: Props) {
       {detail.data && (
         <>
           <Header detail={detail.data} />
-          <SourcePanel detail={detail.data} jobs={jobs.data ?? []} onQueued={queued} />
+          <SourcePanel detail={detail.data} jobs={jobs.data ?? []} onQueued={queued} onChanged={() => void detail.reload()} />
           <PreviewPanel detail={detail.data} presets={presets} onQueued={queued} />
           <ProcessPanel detail={detail.data} presets={presets.filter((p) => !p.preview_only)} onQueued={queued} />
           <OutputPanel detail={detail.data} onQueued={queued} />
@@ -74,12 +75,16 @@ function Header({ detail }: { detail: ItemDetail }) {
   )
 }
 
-function SourcePanel({ detail, jobs, onQueued }: { detail: ItemDetail; jobs: Job[]; onQueued: () => void }) {
+type SourceProps = { detail: ItemDetail; jobs: Job[]; onQueued: () => void; onChanged: () => void }
+
+function SourcePanel({ detail, jobs, onQueued, onChanged }: SourceProps) {
   const action = useAction()
-  const downloading = jobs.some((j) => j.type === 'download' && (j.status === 'queued' || j.status === 'running'))
+  const active = jobs.filter((j) => j.status === 'queued' || j.status === 'running')
+  const downloading = active.some((j) => j.type === 'download')
   return (
     <div className="panel">
       <h3>Original</h3>
+      <VersionPicker detail={detail} locked={active.length > 0} onChanged={onChanged} />
       {detail.local.source ? (
         <p>Heruntergeladen: <span className="mono">{detail.local.source}</span></p>
       ) : downloading ? (
@@ -94,6 +99,57 @@ function SourcePanel({ detail, jobs, onQueued }: { detail: ItemDetail; jobs: Job
       )}
       {action.error && <p className="error">{action.error}</p>}
     </div>
+  )
+}
+
+/** Plex lists several originals (e.g. an HD and an SD recording): choose which one remastr works with. */
+function VersionPicker({ detail, locked, onChanged }: { detail: ItemDetail; locked: boolean; onChanged: () => void }) {
+  const action = useAction()
+  const { item, local } = detail
+  if (item.versions.length < 2) return null
+
+  const select = (file: string | null) =>
+    void action.run(async () => {
+      await api.selectVersion(item.rating_key, file)
+      onChanged()
+    })
+
+  return (
+    <>
+      <p className="muted">
+        Plex hat {item.versions.length} Versionen dieses Titels. Standard ist die erste, die Plex liefert; ist eine
+        andere (z. B. mit niedrigerer Auflösung) die bessere Quelle, hier wählen.
+        {local.source && ' Beim Wechsel wird die heruntergeladene Datei verworfen.'}
+        {locked && ' Wechsel erst möglich, wenn keine Jobs mehr laufen.'}
+      </p>
+      <div className="version-list">
+        {item.versions.map((v, i) => (
+          <label key={v.file} className="preset">
+            <input
+              type="radio"
+              name={`version-${item.rating_key}`}
+              checked={v.file === item.file}
+              disabled={locked || action.busy}
+              onChange={() => select(v.file)}
+            />
+            <span>
+              <strong>
+                <span className="mono">{v.width}×{v.height}</span> · {v.video_codec ?? '–'} / {v.container ?? '–'}
+                {' · '}{formatBitrate(v.bitrate)} · {formatBytes(v.size)}
+                {i === 0 && <span className="muted small-text"> · Standard</span>}
+              </strong>
+              <span className="mono muted small-text break">{v.file}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {item.version_pinned && (
+        <button className="link small-text" disabled={locked || action.busy} onClick={() => select(null)}>
+          Auswahl zurücksetzen (Standard verwenden)
+        </button>
+      )}
+      {action.error && <p className="error">{action.error}</p>}
+    </>
   )
 }
 
