@@ -90,6 +90,10 @@ cd ../backend
 uv run remastr            # http://127.0.0.1:8765
 ```
 
+Danach reicht zum Starten ein Doppelklick auf `start.bat` (oder `start.ps1 [-Rebuild]`): Das Skript führt
+`npm install` und `npm run build` nur aus, wenn sich etwas geändert hat, und startet dann das Backend. Es findet
+`uv` und das per fnm installierte Node auch ohne PowerShell-Profil. Schlägt der Start fehl, bleibt das Fenster offen.
+
 ### Zugriff vom Mac / aus dem Netzwerk
 
 In `backend/.env`: `REMASTR_HOST=0.0.0.0`, einen langen zufälligen `REMASTR_API_TOKEN` setzen und den
