@@ -107,7 +107,7 @@ Own models (e.g. from OpenModelDB) are converted the same way and added via `<wo
 ## 6. ffmpeg, uv, Node.js
 
 - `ffmpeg`/`ffprobe` on `PATH` (e.g. `winget install Gyan.FFmpeg`), or set `REMASTR_FFMPEG`/`REMASTR_FFPROBE`
-  to full paths.
+  to full paths. ffmpeg must include the `libvmaf` filter (automatic quality); the gyan.dev builds do.
 - uv: `winget install astral-sh.uv` (macOS: `brew install uv`). Afterwards in an open PowerShell:
   `$env:Path = [Environment]::GetEnvironmentVariable('Path','User') + ';' + $env:Path`.
 - Node.js LTS (e.g. `winget install Schniz.fnm`, then `fnm install --lts`; macOS: `brew install node`).

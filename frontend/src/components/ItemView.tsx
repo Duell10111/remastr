@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   api,
-  DEFAULT_QUALITY,
   fileUrl,
   formatBytes,
   formatDuration,
@@ -15,6 +14,7 @@ import {
 import { useAction, usePoll } from '../hooks'
 import { Compare } from './Compare'
 import { JobList } from './JobList'
+import { QualityField } from './QualityField'
 
 type Props = { ratingKey: string; presets: Preset[]; onBack: () => void }
 
@@ -184,7 +184,7 @@ function ProcessPanel({ detail, presets, onQueued }: { detail: ItemDetail; prese
   const [chosenPreset, setPreset] = useState<string>()
   const preset = chosenPreset ?? presets[0]?.id ?? ''
   const [codec, setCodec] = useState<Codec>('hevc')
-  const [quality, setQuality] = useState(DEFAULT_QUALITY)
+  const [quality, setQuality] = useState<number | null>(null)
   const action = useAction()
   return (
     <div className="panel">
@@ -205,10 +205,7 @@ function ProcessPanel({ detail, presets, onQueued }: { detail: ItemDetail; prese
             <option value="av1">AV1</option>
           </select>
         </label>
-        <label title="QVBR: kleiner = bessere Qualität, größere Datei">
-          Qualität
-          <input type="number" min={1} max={51} value={quality} onChange={(e) => setQuality(Number(e.target.value))} />
-        </label>
+        <QualityField value={quality} onChange={setQuality} />
         <button
           className="primary"
           disabled={action.busy}
@@ -246,7 +243,12 @@ function OutputPanel({ detail, onQueued }: { detail: ItemDetail; onQueued: () =>
             <a href={fileUrl(rk, o.file)} target="_blank" rel="noreferrer" className="mono">{o.file.split('/').pop()}</a>
             <div className="output-meta">
               <strong>{o.preset_name ?? 'Preset unbekannt'}</strong>
-              {o.codec && <span>{o.codec.toUpperCase()} · Qualität {o.quality}</span>}
+              {o.codec && (
+                <span>
+                  {o.codec.toUpperCase()} · Qualität {o.quality}
+                  {o.quality_auto && (o.vmaf != null ? ` (auto, VMAF ${o.vmaf.toFixed(1)})` : ' (auto)')}
+                </span>
+              )}
               <span>{formatBytes(o.size)}</span>
               {o.created_at && <span>{new Date(o.created_at).toLocaleString()}</span>}
             </div>

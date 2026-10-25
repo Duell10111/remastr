@@ -4,11 +4,14 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 DEFAULT_PRESET = "realesr_general"
 DEFAULT_QUALITY = 26
-"""QVBR 26: visually identical to 20 on upscaled SD at roughly 40% of the size (tested on 640x360 -> 1080p)."""
+"""Suggested fixed QVBR when the automatic quality is switched off: visually identical to 20 on upscaled SD at
+roughly 40% of the size (tested on 640x360 -> 1080p)."""
+DEFAULT_TARGET_VMAF = 95.0
+"""Automatic quality target: VMAF 95 is generally considered visually indistinguishable from the reference."""
 
 
 class Library(BaseModel):
@@ -93,6 +96,10 @@ class OutputInfo(BaseModel):
     preset_name: str | None = None
     codec: str | None = None
     quality: int | None = None
+    quality_auto: bool = False
+    """quality was chosen by the automatic search."""
+    vmaf: float | None = None
+    """Measured VMAF of the chosen quality on the search samples (automatic quality only)."""
     description: str | None = None
     created_at: datetime | None = None
 
@@ -100,7 +107,10 @@ class OutputInfo(BaseModel):
     def label(self) -> str:
         if not self.preset_name:
             return "unknown preset"
-        return f"{self.preset_name}, {(self.codec or '').upper()} q{self.quality}"
+        label = f"{self.preset_name}, {(self.codec or '').upper()} q{self.quality}"
+        if self.quality_auto:
+            label += f" (auto, VMAF {self.vmaf:.1f})" if self.vmaf is not None else " (auto)"
+        return label
 
 
 class LocalState(BaseModel):
@@ -163,8 +173,16 @@ class PreviewRequest(BaseModel):
 class ProcessRequest(BaseModel):
     preset: str = DEFAULT_PRESET
     codec: Literal["hevc", "av1"] = "hevc"
-    quality: int = Field(default=DEFAULT_QUALITY, ge=1, le=51)
-    """NVEncC QVBR target; lower = better quality, larger file."""
+    quality: int | None = Field(default=None, ge=1, le=63)
+    """NVEncC QVBR (lower = better quality, larger file; HEVC 1-51, AV1 1-63). None = automatic: the highest value
+    whose VMAF reaches target_vmaf."""
+    target_vmaf: float = Field(default=DEFAULT_TARGET_VMAF, ge=80, le=99)
+
+    @model_validator(mode="after")
+    def _quality_in_codec_range(self) -> "ProcessRequest":
+        if self.quality is not None and self.codec == "hevc" and self.quality > 51:
+            raise ValueError("HEVC quality must be 1-51")
+        return self
 
 
 class UploadRequest(BaseModel):

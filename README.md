@@ -33,8 +33,17 @@ Untertitel aus dem Original, A/V-Versatz ausgeglichen). SD wird auf 1080p hochsk
 | `lanczos` | – | ohne KI, Referenz zum Vergleichen |
 
 Presets mit „nur Vorschau“ sind für ganze Dateien zu langsam und lassen sich nur für Testabschnitte wählen.
-Die Anime-Modelle lassen Realfilm „gemalt“ wirken (wachsige Haut, Lichthöfe an Kanten). Standard-Qualität ist
-QVBR 26: bei hochskaliertem SD optisch gleich wie 20, aber rund 40 % der Dateigröße.
+Die Anime-Modelle lassen Realfilm „gemalt“ wirken (wachsige Haut, Lichthöfe an Kanten).
+
+### Qualität: Auto (VMAF 95)
+
+Standard ist die automatische Qualität. Vor dem Encode laufen fünf 8-Sekunden-Proben (verteilt über die Datei)
+durch die komplette Pipeline und werden verlustfrei als Referenz kodiert. Eine binäre Suche über QVBR (HEVC 18–32,
+AV1 20–50) kodiert die Proben neu und misst [VMAF](https://github.com/Netflix/vmaf) gegen die Referenz. Genommen
+wird der höchste QVBR-Wert, also die kleinste Datei, bei dem der Mittelwert 95 erreicht und die schlechteste
+Probe höchstens 3 Punkte darunter liegt. Wert und gemessener VMAF stehen danach beim Ergebnis. Alternativ lässt
+sich ein fester QVBR-Wert wählen (26 ist bei hochskaliertem SD optisch gleich wie 20, bei rund 40 % der Größe).
+Voraussetzung: ffmpeg mit `libvmaf` (z. B. die Builds von gyan.dev).
 
 ## Voraussetzungen (Verarbeitungs-PC)
 

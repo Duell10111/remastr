@@ -1,8 +1,10 @@
 """Plex metadata access via python-plexapi."""
 
+import re
 import threading
 
 import requests
+from plexapi.media import Media
 from plexapi.server import PlexServer
 from plexapi.video import Episode, Movie, Video
 
@@ -72,9 +74,18 @@ class PlexService:
                 return
         raise ValueError(f"No Plex library contains {folder}")
 
-    @staticmethod
-    def _to_item(video: Video) -> PlexItem:
-        media = video.media[0]
+    def _original_media(self, video: Video) -> Media:
+        """Plex groups remastr's "version" uploads (<name> - Remastr 1080p.mkv) with the original as versions of one
+        item, in no guaranteed order. Downloads, output names and "replace" must always use the original."""
+        suffix = re.escape(self._settings.version_suffix).replace(r"\{height\}", r"\d+")
+        is_remastr = re.compile(suffix + r"\.[^./\\]+$")
+        originals = [m for m in video.media if m.parts and not is_remastr.search(m.parts[0].file)]
+        if not originals:
+            raise ValueError(f"Item {video.ratingKey} only has remastr versions, no original file")
+        return originals[0]
+
+    def _to_item(self, video: Video) -> PlexItem:
+        media = self._original_media(video)
         part = media.parts[0]
         is_episode = isinstance(video, Episode)
         return PlexItem(

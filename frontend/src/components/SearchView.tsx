@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react'
-import { api, DEFAULT_QUALITY, formatBytes, formatDuration, itemLabel, type Codec, type PlexItem, type Preset, type UploadMode } from '../api'
+import { api, formatBytes, formatDuration, itemLabel, type Codec, type PlexItem, type Preset, type UploadMode } from '../api'
 import { useAction, usePoll } from '../hooks'
+import { QualityField } from './QualityField'
 
 type Props = { presets: Preset[]; onOpen: (ratingKey: string) => void; onQueued: () => void }
 
@@ -111,7 +112,7 @@ function BatchPanel({ presets, ratingKeys, onQueued }: { presets: Preset[]; rati
   const [chosenPreset, setPreset] = useState<string>()
   const preset = chosenPreset ?? presets[0]?.id ?? ''
   const [codec, setCodec] = useState<Codec>('hevc')
-  const [quality, setQuality] = useState(DEFAULT_QUALITY)
+  const [quality, setQuality] = useState<number | null>(null)
   const [upload, setUpload] = useState<'none' | UploadMode>('none')
   const [confirmReplace, setConfirmReplace] = useState(false)
   const action = useAction()
@@ -146,10 +147,7 @@ function BatchPanel({ presets, ratingKeys, onQueued }: { presets: Preset[]; rati
             <option value="av1">AV1</option>
           </select>
         </label>
-        <label>
-          Qualität
-          <input type="number" min={1} max={51} value={quality} onChange={(e) => setQuality(Number(e.target.value))} />
-        </label>
+        <QualityField value={quality} onChange={setQuality} />
         <label>
           Danach
           <select value={upload} onChange={(e) => setUpload(e.target.value as 'none' | UploadMode)}>

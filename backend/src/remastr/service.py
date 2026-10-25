@@ -29,6 +29,7 @@ from remastr.models import (
 )
 from remastr.plex import PlexService
 from remastr.presets import PRESETS, get_preset, load_extra_presets
+from remastr.quality import QualityResult
 from remastr.workspace import Workspace, plex_basename
 
 log = logging.getLogger(__name__)
@@ -212,8 +213,20 @@ class Remastr:
         item = self._item(ctx)
         preset = get_preset(req.preset)
         info = OutputInfo(
-            file="", size=0, preset=preset.id, preset_name=preset.name, codec=req.codec, quality=req.quality
+            file="",
+            size=0,
+            preset=preset.id,
+            preset_name=preset.name,
+            codec=req.codec,
+            quality=req.quality,
+            quality_auto=req.quality is None,
         )
+
+        def title(quality: int, search: QualityResult | None) -> str:
+            info.quality = quality
+            info.vmaf = search.vmaf if search else None
+            return f"Remastr: {info.label}"
+
         result = pipeline.process(
             self.settings,
             self._source(ctx),
@@ -224,7 +237,8 @@ class Remastr:
             req.quality,
             ctx.progress,
             ctx.cancel,
-            video_title=f"Remastr: {info.label}",
+            video_title=title,
+            target_vmaf=req.target_vmaf,
         )
         output = Path(result["file"])
         info.description = result.pop("plan")
@@ -248,6 +262,7 @@ class Remastr:
             "preset_name": made_with.preset_name,
             "codec": made_with.codec,
             "quality": made_with.quality,
+            "vmaf": made_with.vmaf,
         }
         original = self.paths.to_ftp(item.file)
         remote_dir = posixpath.dirname(original)

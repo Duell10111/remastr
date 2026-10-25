@@ -31,6 +31,8 @@ export type OutputInfo = {
   preset_name: string | null
   codec: string | null
   quality: number | null
+  quality_auto: boolean
+  vmaf: number | null
   description: string | null
   created_at: string | null
 }
@@ -56,10 +58,12 @@ export type Job = {
 
 export type Codec = 'hevc' | 'av1'
 export type UploadMode = 'version' | 'replace'
-export type ProcessRequest = { preset: string; codec: Codec; quality: number }
+/** quality null = automatic (highest QVBR that still reaches the target VMAF). */
+export type ProcessRequest = { preset: string; codec: Codec; quality: number | null }
 
-/** Keep in sync with DEFAULT_QUALITY in backend/src/remastr/models.py. The default preset is the first one listed. */
+/** Keep in sync with backend/src/remastr/models.py. The default preset is the first one listed. */
 export const DEFAULT_QUALITY = 26
+export const DEFAULT_TARGET_VMAF = 95
 export type UploadRequest = { mode: UploadMode; confirm: boolean }
 
 const TOKEN_KEY = 'remastr.token'

@@ -15,9 +15,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from remastr.config import Settings
 from remastr.models import Preset
+
+if TYPE_CHECKING:
+    from remastr.quality import QualityResult
 
 ProgressFn = Callable[[float, str], None]
 """(fraction 0..1, message)"""
@@ -213,9 +217,13 @@ def build_vspipe_cmd(
     return cmd + [str(script), "-"]
 
 
-def build_nvencc_cmd(settings: Settings, plan: Plan, preset: Preset, out: Path, codec: str, quality: int) -> list[str]:
+def build_nvencc_cmd(
+    settings: Settings, plan: Plan, preset: Preset, out: Path, codec: str, quality: int | None
+) -> list[str]:
+    """quality: QVBR value, or None for lossless (reference for the automatic quality search)."""
     matrix = _output_matrix(plan, preset)
     vui = "bt709" if matrix == "709" else "smpte170m"
+    rate = ["--lossless"] if quality is None else ["--qvbr", str(quality)]
     cmd = [
         str(settings.nvencc),
         "--y4m",
@@ -225,8 +233,7 @@ def build_nvencc_cmd(settings: Settings, plan: Plan, preset: Preset, out: Path, 
         codec,
         "--preset",
         "p7",
-        "--qvbr",
-        str(quality),
+        *rate,
         "--output-depth",
         "8" if codec == "h264" else "10",
     ]
@@ -374,12 +381,17 @@ def process(
     name_for_height: Callable[[int], str],
     preset: Preset,
     codec: str,
-    quality: int,
+    quality: int | None,
     on_progress: ProgressFn | None = None,
     cancel: threading.Event | None = None,
-    video_title: str | None = None,
+    video_title: "Callable[[int, QualityResult | None], str] | None" = None,
+    target_vmaf: float = 95.0,
 ) -> dict:
-    """Full-length processing with audio and subtitles. Writes the result atomically."""
+    """Full-length processing with audio and subtitles. Writes the result atomically.
+    quality None = automatic (highest QVBR that reaches target_vmaf, see remastr.quality). video_title gets the
+    final quality and the search result and returns the video track name."""
+    from remastr.quality import find_quality  # quality imports this module
+
     info, plan = analyze(settings, src)
     eff = effective_preset(plan, preset)
     dest = dest_dir / name_for_height(plan.out_h)
@@ -388,18 +400,45 @@ def process(
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp_video = dest.with_name(dest.stem + ".video.mkv")
     tmp_mux = dest.with_name(dest.stem + ".partial.mkv")
+
+    search = None
+    encode_progress = on_progress
+    if quality is None:
+        # the search takes roughly a fifth of the time of a fast (~100 fps) full encode
+        def search_progress(frac: float, msg: str) -> None:
+            if on_progress:
+                on_progress(frac * 0.2, msg)
+
+        def encode_progress(frac: float, msg: str) -> None:
+            if on_progress:
+                on_progress(0.2 + frac * 0.8, f"q{quality} (auto): {msg}")
+
+        search = find_quality(
+            settings,
+            src,
+            info,
+            plan,
+            eff,
+            codec,
+            target_vmaf,
+            dest.with_name(dest.stem + ".quality"),
+            search_progress,
+            cancel,
+        )
+        quality = search.quality
+    title = video_title(quality, search) if video_title else None
     try:
         run_encode(
             build_vspipe_cmd(settings, src, plan, eff, dest.with_name(dest.stem + ".lwi")),
             build_nvencc_cmd(settings, plan, eff, tmp_video, codec, quality),
             max(1, math.floor(info.duration * plan.out_fps)),
             dest.with_name(dest.stem + ".vspipe.log"),
-            on_progress,
+            encode_progress,
             cancel,
         )
         if on_progress:
             on_progress(1.0, "muxing audio/subtitles")
-        mux(settings, tmp_video, src, tmp_mux, round((info.min_start - info.video_start) * 1000), video_title)
+        mux(settings, tmp_video, src, tmp_mux, round((info.min_start - info.video_start) * 1000), title)
         out_dur = duration_of(settings, tmp_mux)
         if abs(out_dur - info.duration) > 2:
             raise PipelineError(f"Output duration {out_dur:.1f}s differs from source {info.duration:.1f}s")
@@ -414,4 +453,6 @@ def process(
         "width": plan.out_w,
         "height": plan.out_h,
         "plan": describe(info, plan),
+        "quality": quality,
+        "quality_search": search.model_dump() if search else None,
     }

@@ -68,6 +68,9 @@ foreach ($f in 'Real_HAT_GAN_SRx4.onnx', 'Real_HAT_GAN_sharper.onnx') {
 }
 
 Check 6 "ffprobe ($ffprobe)" ((Has-Command $ffprobe) -or (Test-Path $ffprobe))
+$ffmpeg = Get-Setting 'FFMPEG' 'ffmpeg'
+$vmaf = (Has-Command $ffmpeg) -and [bool]((& $ffmpeg -hide_banner -filters 2>$null) -match 'libvmaf')
+Check 6 'ffmpeg mit libvmaf (automatische Qualität)' $vmaf 'ffmpeg-Build mit libvmaf, z. B. winget install Gyan.FFmpeg'
 Check 6 'uv' (Has-Command 'uv') 'PATH neu laden oder winget install astral-sh.uv'
 Check 6 'Node.js' (Has-Command 'node') 'fnm use lts-latest'
 Check 6 'Backend-Abhängigkeiten (backend\.venv)' (Test-Path "$repo\backend\.venv")

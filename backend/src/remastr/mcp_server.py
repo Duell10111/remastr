@@ -7,7 +7,7 @@ from mcp_types import ToolAnnotations
 
 from remastr.models import (
     DEFAULT_PRESET,
-    DEFAULT_QUALITY,
+    DEFAULT_TARGET_VMAF,
     BatchRequest,
     ItemDetail,
     Job,
@@ -31,7 +31,8 @@ Typical workflow:
    Live action: realesr_general (default), scunet_vsr (cleaner, softer) or dpir_vsr.
    Presets with preview_only=true are too slow for whole files and can only be used for previews.
    Cartoons/anime: esrgan or cugan (these make live action look painted).
-3. process_item (or batch_process for many items) with the chosen preset.
+3. process_item (or batch_process for many items) with the chosen preset. Leave quality unset: the automatic
+   quality picks the smallest file that still reaches VMAF 95.
 4. upload_result: mode "version" adds the file next to the original (safe, default). Mode "replace" moves the
    original to an archive folder and requires confirm=true - only use it when the user explicitly asked for it.
 All long-running operations are jobs: poll list_jobs / get_job for progress.
@@ -80,10 +81,15 @@ def build_mcp(svc: Remastr) -> MCPServer:
         rating_key: str,
         preset: str = DEFAULT_PRESET,
         codec: Literal["hevc", "av1"] = "hevc",
-        quality: int = DEFAULT_QUALITY,
+        quality: int | None = None,
+        target_vmaf: float = DEFAULT_TARGET_VMAF,
     ) -> Job:
-        """Queue full-length processing (with audio and subtitles). quality: lower = better/larger (QVBR)."""
-        return svc.process(rating_key, ProcessRequest(preset=preset, codec=codec, quality=quality))
+        """Queue full-length processing (with audio and subtitles). quality: fixed QVBR (lower = better/larger;
+        HEVC 1-51, AV1 1-63). Default None = automatic: the highest QVBR whose VMAF reaches target_vmaf, measured on
+        samples of the file (adds a short search; recommended)."""
+        return svc.process(
+            rating_key, ProcessRequest(preset=preset, codec=codec, quality=quality, target_vmaf=target_vmaf)
+        )
 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, openWorldHint=True))
     def upload_result(rating_key: str, mode: Literal["version", "replace"] = "version", confirm: bool = False) -> Job:
@@ -96,17 +102,18 @@ def build_mcp(svc: Remastr) -> MCPServer:
         rating_keys: list[str],
         preset: str = DEFAULT_PRESET,
         codec: Literal["hevc", "av1"] = "hevc",
-        quality: int = DEFAULT_QUALITY,
+        quality: int | None = None,
+        target_vmaf: float = DEFAULT_TARGET_VMAF,
         upload_mode: Literal["none", "version", "replace"] = "none",
         confirm_replace: bool = False,
     ) -> list[Job]:
-        """Queue download -> process -> optional upload for many items. upload_mode "replace" needs
-        confirm_replace=true and explicit user consent."""
+        """Queue download -> process -> optional upload for many items. quality/target_vmaf as in process_item.
+        upload_mode "replace" needs confirm_replace=true and explicit user consent."""
         upload = None if upload_mode == "none" else UploadRequest(mode=UploadMode(upload_mode), confirm=confirm_replace)
         return svc.batch(
             BatchRequest(
                 rating_keys=rating_keys,
-                process=ProcessRequest(preset=preset, codec=codec, quality=quality),
+                process=ProcessRequest(preset=preset, codec=codec, quality=quality, target_vmaf=target_vmaf),
                 upload=upload,
             )
         )
