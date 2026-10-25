@@ -5,7 +5,7 @@ export function QualityField({ value, onChange }: { value: number | null; onChan
   return (
     <label title="Auto: pro Datei die kleinste Datei suchen, die noch VMAF 95 erreicht (optisch wie unkomprimiert). Fest: QVBR, kleiner = bessere Qualität, größere Datei">
       Qualität
-      <span className="row">
+      <span className="quality-field">
         <select value={value === null ? 'auto' : 'fixed'} onChange={(e) => onChange(e.target.value === 'auto' ? null : DEFAULT_QUALITY)}>
           <option value="auto">Auto (VMAF {DEFAULT_TARGET_VMAF})</option>
           <option value="fixed">Fest</option>
