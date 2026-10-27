@@ -24,6 +24,7 @@ ITEM = PlexItem(
 class FakePlex:
     def __init__(self):
         self.refreshed: list[str] = []
+        self.grouped: list[str] = []
 
     def libraries(self):
         return []
@@ -38,6 +39,10 @@ class FakePlex:
 
     def refresh_folder(self, plex_path):
         self.refreshed.append(plex_path)
+
+    def wait_and_group(self, rating_key, plex_path, cancel):
+        self.grouped.append(plex_path)
+        return None
 
 
 class FakeFtp:

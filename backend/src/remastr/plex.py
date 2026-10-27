@@ -2,6 +2,8 @@
 
 import re
 import threading
+import time
+from collections.abc import Callable
 
 import requests
 from plexapi.media import Media
@@ -10,6 +12,9 @@ from plexapi.video import Episode, Movie, Video
 
 from remastr.config import Settings
 from remastr.models import Library, MediaVersion, PlexItem
+
+LEGACY_VERSION_SUFFIXES = [" - Remastr {height}p"]
+"""Earlier version_suffix defaults; files named that way are still remastr versions, not originals."""
 
 
 class PlexService:
@@ -74,11 +79,43 @@ class PlexService:
                 return
         raise ValueError(f"No Plex library contains {folder}")
 
+    def wait_and_group(
+        self,
+        rating_key: str,
+        plex_path: str,
+        cancel: Callable[[], bool],
+        timeout_s: float = 900,
+        poll_s: float = 10,
+    ) -> str | None:
+        """After a scan, wait until Plex has indexed plex_path. Plex derives the title from the file name, so the
+        new file can end up as a separate item instead of a version of rating_key; that item is then merged into
+        rating_key (undo in Plex with "Split"). Returns the merged item's rating key, None if already grouped."""
+        deadline = time.monotonic() + timeout_s
+        while True:
+            original = self.server.fetchItem(int(rating_key))
+            if _has_file(original, plex_path):
+                return None
+            section = self.server.library.sectionByID(original.librarySectionID)
+            for other in section.recentlyAdded(maxresults=50, libtype=original.type):
+                if str(other.ratingKey) != rating_key and _has_file(other, plex_path):
+                    self.merge(rating_key, str(other.ratingKey))
+                    return str(other.ratingKey)
+            if time.monotonic() > deadline:
+                raise TimeoutError(f"Plex has not indexed {plex_path} after {timeout_s / 60:.0f} min")
+            if cancel():
+                raise InterruptedError("cancelled")
+            time.sleep(poll_s)
+
+    def merge(self, rating_key: str, other: str) -> None:
+        """Merge item `other` into rating_key, like "Merge" in Plex Web (plexapi only offers it for movies/shows)."""
+        self.server.query(f"/library/metadata/{rating_key}/merge?ids={other}", method=self.server._session.put)
+
     def _original_media(self, video: Video) -> list[Media]:
-        """Plex groups remastr's "version" uploads (<name> - Remastr 1080p.mkv) with the original as versions of one
+        """Plex groups remastr's "version" uploads (<name> - 1080p Remastr.mkv) with the original as versions of one
         item, in no guaranteed order. Downloads, output names and "replace" must always use an original."""
-        suffix = re.escape(self._settings.version_suffix).replace(r"\{height\}", r"\d+")
-        is_remastr = re.compile(suffix + r"\.[^./\\]+$")
+        suffixes = [self._settings.version_suffix, *LEGACY_VERSION_SUFFIXES]
+        pattern = "|".join(re.escape(s).replace(r"\{height\}", r"\d+") for s in suffixes)
+        is_remastr = re.compile(f"(?:{pattern})" + r"\.[^./\\]+$")
         originals = [m for m in video.media if m.parts and not is_remastr.search(m.parts[0].file)]
         if not originals:
             raise ValueError(f"Item {video.ratingKey} only has remastr versions, no original file")
@@ -111,3 +148,7 @@ class PlexService:
             versions=versions,
             **versions[0].model_dump(exclude={"bitrate"}),
         )
+
+
+def _has_file(video: Video, plex_path: str) -> bool:
+    return any(part.file == plex_path for media in video.media for part in media.parts)

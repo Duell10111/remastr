@@ -8,7 +8,7 @@ from .conftest import ITEM
 ORIGINAL = "/tv/Mickys Clubhaus/Season 01/Mickys Clubhaus - s01e01.ts"
 
 
-def make_output(svc, name="Mickys Clubhaus - s01e01 - Remastr 1080p.mkv"):
+def make_output(svc, name="Mickys Clubhaus - s01e01 - 1080p Remastr.mkv"):
     svc.workspace.save_item(ITEM)
     out = svc.workspace.output_dir(ITEM.rating_key) / name
     out.parent.mkdir(parents=True)
@@ -24,17 +24,18 @@ def run_upload(svc, mode, confirm=False):
 
 
 def test_output_name_uses_version_suffix(svc):
-    assert svc.workspace.output_name(ITEM, 1080) == "Mickys Clubhaus - s01e01 - Remastr 1080p.mkv"
+    assert svc.workspace.output_name(ITEM, 1080) == "Mickys Clubhaus - s01e01 - 1080p Remastr.mkv"
 
 
 def test_upload_as_version_keeps_original(svc):
     make_output(svc)
     result = run_upload(svc, UploadMode.version)
-    assert result["remote"] == "/tv/Mickys Clubhaus/Season 01/Mickys Clubhaus - s01e01 - Remastr 1080p.mkv"
+    assert result["remote"] == "/tv/Mickys Clubhaus/Season 01/Mickys Clubhaus - s01e01 - 1080p Remastr.mkv"
     assert svc.ftp.files[result["remote"]] == b"upscaled"
     assert svc.ftp.files[ORIGINAL] == b"original"
     assert not any(k.endswith(".remastr-upload") for k in svc.ftp.files)
     assert svc.plex.refreshed == [ITEM.file]
+    assert svc.plex.grouped == ["/data/tv/Mickys Clubhaus/Season 01/Mickys Clubhaus - s01e01 - 1080p Remastr.mkv"]
 
 
 def test_version_upload_never_writes_partial_under_final_name(svc):
@@ -55,7 +56,7 @@ def test_version_upload_never_writes_partial_under_final_name(svc):
 
 def test_version_upload_does_not_overwrite_existing(svc):
     make_output(svc)
-    svc.ftp.files["/tv/Mickys Clubhaus/Season 01/Mickys Clubhaus - s01e01 - Remastr 1080p.mkv"] = b"older"
+    svc.ftp.files["/tv/Mickys Clubhaus/Season 01/Mickys Clubhaus - s01e01 - 1080p Remastr.mkv"] = b"older"
     with pytest.raises(RuntimeError, match="already exists"):
         run_upload(svc, UploadMode.version)
 
@@ -85,7 +86,7 @@ def test_output_info_is_shown_and_reported_on_upload(svc):
     )
     [info] = svc.workspace.local_state(ITEM.rating_key).outputs
     assert (info.preset, info.quality, info.size) == ("dpir_vsr", 26, len(b"upscaled"))
-    assert info.file == "output/Mickys Clubhaus - s01e01 - Remastr 1080p.mkv"
+    assert info.file == "output/Mickys Clubhaus - s01e01 - 1080p Remastr.mkv"
     result = run_upload(svc, UploadMode.version)
     assert result["preset"] == "dpir_vsr"
     assert "DPIR deblock + NVIDIA VSR, HEVC q26" in result["message"]
@@ -195,3 +196,13 @@ def test_vanished_selection_falls_back_to_default(svc):
     hd, _ = two_versions(svc)
     svc.workspace.select_version(ITEM.rating_key, "/data/tv/gone.mkv")
     assert svc.item(ITEM.rating_key).item.file == hd.file
+
+
+def test_failed_plex_grouping_does_not_fail_the_upload(svc):
+    def unreachable(*a):
+        raise TimeoutError("Plex has not indexed it")
+
+    make_output(svc)
+    svc.plex.wait_and_group = unreachable
+    result = run_upload(svc, UploadMode.version)
+    assert "Plex grouping not checked" in result["message"]

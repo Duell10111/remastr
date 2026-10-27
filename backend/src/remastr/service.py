@@ -304,7 +304,8 @@ class Remastr:
             self.ftp.rename(upload_tmp_name(final, local), final)
             self.plex.refresh_folder(item.file)
             return {
-                "message": f"Uploaded as additional version ({made_with.label}): {local.name}",
+                "message": f"Uploaded as additional version ({made_with.label}): {local.name}"
+                + self._group_in_plex(ctx, item, local.name),
                 "remote": final,
                 **provenance,
             }
@@ -321,11 +322,26 @@ class Remastr:
         self.ftp.rename(tmp, final)
         self.plex.refresh_folder(item.file)
         return {
-            "message": f"Original replaced ({made_with.label})",
+            "message": f"Original replaced ({made_with.label})"
+            + self._group_in_plex(ctx, item, posixpath.basename(final)),
             "remote": final,
             "archived_original": archive,
             **provenance,
         }
+
+    def _group_in_plex(self, ctx: JobContext, item: PlexItem, name: str) -> str:
+        """Make sure Plex shows the uploaded file as a version of the item; returns a note for the job message.
+        Never fails the upload: the file is on the server either way."""
+        plex_path = item.file[: len(item.file) - len(plex_basename(item.file))] + name
+        ctx.progress(1.0, "waiting for the Plex scan")
+        try:
+            merged = self.plex.wait_and_group(item.rating_key, plex_path, ctx.cancel.is_set)
+        except Exception as e:
+            log.warning("Could not check Plex grouping of %s: %s", plex_path, e)
+            return f" · Plex grouping not checked ({e})"
+        if merged is not None:
+            return f" · Plex had listed it as a separate item ({merged}), merged into the original"
+        return ""
 
 
 def upload_tmp_name(final: str, local: Path) -> str:

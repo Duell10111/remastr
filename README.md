@@ -135,10 +135,15 @@ heruntergeladene Datei der anderen Version wird beim Wechsel verworfen; Vorschau
 
 ## Upload-Modi
 
-- **version** (Standard): Datei landet neben dem Original als `<Name> - Remastr 1080p.mkv`; Plex fasst beide
-  als Versionen desselben Titels zusammen.
+- **version** (Standard): Datei landet neben dem Original als `<Name> - 1080p Remastr.mkv`; Plex fasst beide
+  als Versionen desselben Titels zusammen. Die Auflösung steht vorn, weil Plex den Titel bei der ersten
+  Auflösungsangabe abschneidet (`<Name> - Remastr 1080p` wurde bei Filmen ohne Jahr im Namen zu „Name Remastr“).
 - **replace**: Upload unter temporärem Namen → Original wird nach `REMASTR_FTP_ARCHIVE_ROOT` verschoben →
   neue Datei wird an Ort und Stelle umbenannt → Plex-Teilscan.
+
+Nach dem Upload wartet der Job auf den Plex-Scan (bis 15 min). Hat Plex die neue Datei als eigenen Titel angelegt,
+wird sie mit dem Original zusammengeführt (in Plex mit „Aufteilen“ rückgängig zu machen). Klappt die Prüfung nicht,
+bleibt der Upload trotzdem erfolgreich; der Hinweis steht in der Job-Meldung.
 
 ## Projektstruktur
 

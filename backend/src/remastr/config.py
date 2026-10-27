@@ -43,8 +43,10 @@ class Settings(BaseSettings):
     """JSON list, e.g. [{"plex": "/data/tv", "ftp": "/tv"}]."""
     ftp_archive_root: str = ""
     """FTP folder for originals replaced by "replace" uploads. Must be outside every Plex library."""
-    version_suffix: str = " - Remastr {height}p"
-    """Appended to the original file name for "version" uploads; Plex groups them as versions of one item."""
+    version_suffix: str = " - {height}p Remastr"
+    """Appended to the original file name for "version" uploads; Plex groups them as versions of one item.
+    The resolution comes first: Plex cuts the title at the first resolution token, so "Name - Remastr 1080p"
+    became the title "Name Remastr" for movies without a year in the file name."""
 
     # --- Local workspace ---
     work_dir: Path = Path("F:/Remastr")
